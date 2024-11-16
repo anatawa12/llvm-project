@@ -107,6 +107,7 @@ ClangPersistentVariables::GetPersistentDecl(ConstString name) {
   return m_persistent_decls.lookup(name.GetCString()).m_decl;
 }
 
+#ifdef CONSOLE_LOG_SAVER
 std::shared_ptr<ClangASTImporter>
 ClangPersistentVariables::GetClangASTImporter() {
   if (!m_ast_importer_sp) {
@@ -114,6 +115,7 @@ ClangPersistentVariables::GetClangASTImporter() {
   }
   return m_ast_importer_sp;
 }
+#endif
 
 std::shared_ptr<ClangModulesDeclVendor>
 ClangPersistentVariables::GetClangModulesDeclVendor() {

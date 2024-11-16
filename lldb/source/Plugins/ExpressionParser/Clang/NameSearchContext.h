@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #ifndef LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_NAME_SEARCH_CONTEXT_H
 #define LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_NAME_SEARCH_CONTEXT_H
 
@@ -121,3 +122,4 @@ private:
 } // namespace lldb_private
 
 #endif // LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_NAME_SEARCH_CONTEXT_H
+#endif // CONSOLE_LOG_SAVER

@@ -42,7 +42,9 @@ public:
 
   ~ClangPersistentVariables() override = default;
 
+#ifdef CONSOLE_LOG_SAVER
   std::shared_ptr<ClangASTImporter> GetClangASTImporter();
+#endif
   std::shared_ptr<ClangModulesDeclVendor> GetClangModulesDeclVendor();
 
   lldb::ExpressionVariableSP
@@ -109,7 +111,9 @@ private:
       m_hand_loaded_clang_modules; ///< These are Clang modules we hand-loaded;
                                    ///these are the highest-
                                    ///< priority source for macros.
+#ifdef CONSOLE_LOG_SAVER
   std::shared_ptr<ClangASTImporter> m_ast_importer_sp;
+#endif
   std::shared_ptr<ClangModulesDeclVendor> m_modules_decl_vendor_sp;
   std::shared_ptr<Target> m_target_sp;
 };

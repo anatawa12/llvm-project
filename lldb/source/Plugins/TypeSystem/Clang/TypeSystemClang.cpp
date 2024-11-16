@@ -78,8 +78,10 @@
 
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
 #include "Plugins/SymbolFile/DWARF/DWARFASTParserClang.h"
+#ifdef CONSOLE_LOG_SAVER
 #include "Plugins/SymbolFile/PDB/PDBASTParser.h"
 #include "Plugins/SymbolFile/NativePDB/PdbAstBuilder.h"
+#endif
 
 #include <cstdio>
 
@@ -9111,20 +9113,22 @@ bool TypeSystemClang::LayoutRecordType(
         &base_offsets,
     llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
         &vbase_offsets) {
+#ifndef CONSOLE_LOG_SAVER
+  return false;
+#else
   lldb_private::ClangASTImporter *importer = nullptr;
-#if CONSOLE_LOG_SAVER
   if (m_dwarf_ast_parser_up)
     importer = &m_dwarf_ast_parser_up->GetClangASTImporter();
   if (!importer && m_pdb_ast_parser_up)
     importer = &m_pdb_ast_parser_up->GetClangASTImporter();
   if (!importer && m_native_pdb_ast_parser_up)
     importer = &m_native_pdb_ast_parser_up->GetClangASTImporter();
-#endif
   if (!importer)
     return false;
 
   return importer->LayoutRecordType(record_decl, bit_size, alignment,
                                     field_offsets, base_offsets, vbase_offsets);
+#endif
 }
 
 // CompilerDecl override functions
@@ -9820,6 +9824,7 @@ ScratchTypeSystemClang::GetPersistentExpressionState() {
   return m_persistent_variables.get();
 }
 
+#ifdef CONSOLE_LOG_SAVER
 void ScratchTypeSystemClang::ForgetSource(ASTContext *src_ctx,
                                           ClangASTImporter &importer) {
   // Remove it as a source from the main AST.
@@ -9829,7 +9834,6 @@ void ScratchTypeSystemClang::ForgetSource(ASTContext *src_ctx,
     importer.ForgetSource(&a.second->getASTContext(), src_ctx);
 }
 
-#ifdef CONSOLE_LOG_SAVER
 std::unique_ptr<ClangASTSource> ScratchTypeSystemClang::CreateASTSource() {
   return std::make_unique<ClangASTSource>(
       m_target_wp.lock()->shared_from_this(),

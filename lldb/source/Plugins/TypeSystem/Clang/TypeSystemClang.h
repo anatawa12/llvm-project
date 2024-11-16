@@ -1324,10 +1324,12 @@ public:
 
   PersistentExpressionState *GetPersistentExpressionState() override;
 
+#ifdef CONSOLE_LOG_SAVER
   /// Unregisters the given ASTContext as a source from the scratch AST (and
   /// all sub-ASTs).
   /// \see ClangASTImporter::ForgetSource
   void ForgetSource(clang::ASTContext *src_ctx, ClangASTImporter &importer);
+#endif
 
   // llvm casting support
   bool isA(const void *ClassID) const override {

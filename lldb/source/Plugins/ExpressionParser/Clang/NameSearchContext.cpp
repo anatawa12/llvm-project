@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "NameSearchContext.h"
 #include "ClangUtil.h"
 #include "lldb/Utility/LLDBLog.h"
@@ -178,3 +179,4 @@ void NameSearchContext::AddLookupResult(clang::DeclContextLookupResult result) {
 void NameSearchContext::AddNamedDecl(clang::NamedDecl *decl) {
   m_decls.push_back(decl);
 }
+#endif // CONSOLE_LOG_SAVER
