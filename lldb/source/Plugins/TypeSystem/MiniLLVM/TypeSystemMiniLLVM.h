@@ -1,4 +1,4 @@
-//===-- TypeSystemClang.h ---------------------------------------*- C++ -*-===//
+//===-- TypeSystemMiniLLVM.h ---------------------------------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLDB_SOURCE_PLUGINS_TYPESYSTEM_CLANG_TYPESYSTEMCLANG_H
-#define LLDB_SOURCE_PLUGINS_TYPESYSTEM_CLANG_TYPESYSTEMCLANG_H
+#ifndef LLDB_SOURCE_PLUGINS_TYPESYSTEM_MINILLVM_TYPESYSTEMINILLVM_H
+#define LLDB_SOURCE_PLUGINS_TYPESYSTEM_MINILLVM_TYPESYSTEMINILLVM_H
 
 #include <cstdint>
 
@@ -65,7 +65,7 @@ public:
   unsigned GetValue() const { return m_id; }
 };
 
-/// The implementation of lldb::Type's m_payload field for TypeSystemClang.
+/// The implementation of lldb::Type's m_payload field for TypeSystemMiniLLVM.
 class TypePayloadClang {
   /// The payload is used for typedefs and ptrauth types.
   /// For typedefs, the Layout is as follows:
@@ -100,13 +100,13 @@ public:
 ///
 /// This class uses a single clang::ASTContext as the backend for storing
 /// its types and declarations. Every clang::ASTContext should also just have
-/// a single associated TypeSystemClang instance that manages it.
+/// a single associated TypeSystemMiniLLVM instance that manages it.
 ///
-/// The clang::ASTContext instance can either be created by TypeSystemClang
+/// The clang::ASTContext instance can either be created by TypeSystemMiniLLVM
 /// itself or it can adopt an existing clang::ASTContext (for example, when
 /// it is necessary to provide a TypeSystem interface for an existing
 /// clang::ASTContext that was created by clang::CompilerInstance).
-class TypeSystemClang : public TypeSystem {
+class TypeSystemMiniLLVM : public TypeSystem {
   // LLVM RTTI support
   static char ID;
 
@@ -119,24 +119,24 @@ public:
   bool isA(const void *ClassID) const override { return ClassID == &ID; }
   static bool classof(const TypeSystem *ts) { return ts->isA(&ID); }
 
-  /// Constructs a TypeSystemClang with an ASTContext using the given triple.
+  /// Constructs a TypeSystemMiniLLVM with an ASTContext using the given triple.
   ///
-  /// \param name The name for the TypeSystemClang (for logging purposes)
+  /// \param name The name for the TypeSystemMiniLLVM (for logging purposes)
   /// \param triple The llvm::Triple used for the ASTContext. The triple defines
   ///               certain characteristics of the ASTContext and its types
   ///               (e.g., whether certain primitive types exist or what their
   ///               signedness is).
-  explicit TypeSystemClang(llvm::StringRef name, llvm::Triple triple);
+  explicit TypeSystemMiniLLVM(llvm::StringRef name, llvm::Triple triple);
 
-  /// Constructs a TypeSystemClang that uses an existing ASTContext internally.
+  /// Constructs a TypeSystemMiniLLVM that uses an existing ASTContext internally.
   /// Useful when having an existing ASTContext created by Clang.
   ///
-  /// \param name The name for the TypeSystemClang (for logging purposes)
+  /// \param name The name for the TypeSystemMiniLLVM (for logging purposes)
   /// \param existing_ctxt An existing ASTContext.
-  explicit TypeSystemClang(llvm::StringRef name,
+  explicit TypeSystemMiniLLVM(llvm::StringRef name,
                            clang::ASTContext &existing_ctxt);
 
-  ~TypeSystemClang() override;
+  ~TypeSystemMiniLLVM() override;
 
   void Finalize() override;
 
@@ -155,13 +155,13 @@ public:
 
   static void Terminate();
 
-  static TypeSystemClang *GetASTContext(clang::ASTContext *ast_ctx);
+  static TypeSystemMiniLLVM *GetASTContext(clang::ASTContext *ast_ctx);
 
-  /// Returns the display name of this TypeSystemClang that indicates what
+  /// Returns the display name of this TypeSystemMiniLLVM that indicates what
   /// purpose it serves in LLDB. Used for example in logs.
   llvm::StringRef getDisplayName() const { return m_display_name; }
 
-  /// Returns the clang::ASTContext instance managed by this TypeSystemClang.
+  /// Returns the clang::ASTContext instance managed by this TypeSystemMiniLLVM.
   clang::ASTContext &getASTContext() const;
 
   clang::MangleContext *getMangleContext();
@@ -179,7 +179,7 @@ public:
       llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> &ast_source_up);
 
   bool GetCompleteDecl(clang::Decl *decl) {
-    return TypeSystemClang::GetCompleteDecl(&getASTContext(), decl);
+    return TypeSystemMiniLLVM::GetCompleteDecl(&getASTContext(), decl);
   }
 
   static void DumpDeclHiearchy(clang::Decl *decl);
@@ -233,16 +233,16 @@ public:
                            bool ignore_qualifiers = false);
 
   /// Creates a CompilerType from the given QualType with the current
-  /// TypeSystemClang instance as the CompilerType's typesystem.
+  /// TypeSystemMiniLLVM instance as the CompilerType's typesystem.
   /// \param qt The QualType for a type that belongs to the ASTContext of this
-  ///           TypeSystemClang.
+  ///           TypeSystemMiniLLVM.
   /// \return The CompilerType representing the given QualType. If the
   ///         QualType's type pointer is a nullptr then the function returns an
   ///         invalid CompilerType.
   CompilerType GetType(clang::QualType qt) {
     if (qt.getTypePtrOrNull() == nullptr)
       return CompilerType();
-    // Check that the type actually belongs to this TypeSystemClang.
+    // Check that the type actually belongs to this TypeSystemMiniLLVM.
     assert(qt->getAsTagDecl() == nullptr ||
            &qt->getAsTagDecl()->getASTContext() == &getASTContext());
     return CompilerType(weak_from_this(), qt.getAsOpaquePtr());
@@ -460,7 +460,7 @@ public:
                   OptionalClangModuleID owning_module, bool isInternal,
                   std::optional<ClangASTMetadata> metadata = std::nullopt);
 
-  // Returns a mask containing bits from the TypeSystemClang::eTypeXXX
+  // Returns a mask containing bits from the TypeSystemMiniLLVM::eTypeXXX
   // enumerations
 
   // Namespace Declarations
@@ -521,12 +521,12 @@ public:
 
   // TypeSystem methods
   plugin::dwarf::DWARFASTParser *GetDWARFParser() override;
-#if CONSOLE_LOG_SAVER_OSX
+#if _WIN32
   PDBASTParser *GetPDBParser() override;
   npdb::PdbAstBuilder *GetNativePDBParser() override;
 #endif
 
-  // TypeSystemClang callbacks for external source lookups.
+  // TypeSystemMiniLLVM callbacks for external source lookups.
   void CompleteTagDecl(clang::TagDecl *);
 
   void CompleteObjCInterfaceDecl(clang::ObjCInterfaceDecl *);
@@ -540,9 +540,9 @@ public:
           &vbase_offsets);
 
   /// Creates a CompilerDecl from the given Decl with the current
-  /// TypeSystemClang instance as its typesystem.
+  /// TypeSystemMiniLLVM instance as its typesystem.
   /// The Decl has to come from the ASTContext of this
-  /// TypeSystemClang.
+  /// TypeSystemMiniLLVM.
   CompilerDecl GetCompilerDecl(clang::Decl *decl) {
     assert(&decl->getASTContext() == &getASTContext() &&
            "CreateCompilerDecl for Decl from wrong ASTContext?");
@@ -573,9 +573,9 @@ public:
   // CompilerDeclContext override functions
 
   /// Creates a CompilerDeclContext from the given DeclContext
-  /// with the current TypeSystemClang instance as its typesystem.
+  /// with the current TypeSystemMiniLLVM instance as its typesystem.
   /// The DeclContext has to come from the ASTContext of this
-  /// TypeSystemClang.
+  /// TypeSystemMiniLLVM.
   CompilerDeclContext CreateDeclContext(clang::DeclContext *ctx);
 
   /// Set the owning module for \p decl.
@@ -622,7 +622,7 @@ public:
                          const clang::Decl *object);
 
   static clang::ASTContext *
-  DeclContextGetTypeSystemClang(const CompilerDeclContext &dc);
+  DeclContextGetTypeSystemMiniLLVM(const CompilerDeclContext &dc);
 
   // Tests
 
@@ -1096,7 +1096,7 @@ public:
   clang::ClassTemplateDecl *ParseClassTemplateDecl(
       clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
       lldb::AccessType access_type, const char *parent_name, int tag_decl_kind,
-      const TypeSystemClang::TemplateParameterInfos &template_param_infos);
+      const TypeSystemMiniLLVM::TemplateParameterInfos &template_param_infos);
 
   clang::BlockDecl *CreateBlockDeclaration(clang::DeclContext *ctx,
                                            OptionalClangModuleID owning_module);
@@ -1171,14 +1171,14 @@ private:
 
   /// Emits information about this TypeSystem into the expression log.
   ///
-  /// Helper method that is used in \ref TypeSystemClang::TypeSystemClang
+  /// Helper method that is used in \ref TypeSystemMiniLLVM::TypeSystemMiniLLVM
   /// on creation of a new instance.
   void LogCreation() const;
 
   std::optional<uint64_t> GetObjCBitSize(clang::QualType qual_type,
                                          ExecutionContextScope *exe_scope);
 
-  // Classes that inherit from TypeSystemClang can see and modify these
+  // Classes that inherit from TypeSystemMiniLLVM can see and modify these
   std::string m_target_triple;
   std::unique_ptr<clang::ASTContext> m_ast_up;
   std::unique_ptr<clang::LangOptions> m_language_options_up;
@@ -1194,14 +1194,14 @@ private:
   std::unique_ptr<clang::HeaderSearch> m_header_search_up;
   std::unique_ptr<clang::ModuleMap> m_module_map_up;
   std::unique_ptr<DWARFASTParserClang> m_dwarf_ast_parser_up;
-#if CONSOLE_LOG_SAVER_OSX || _WIN32
+#if _WIN32
   std::unique_ptr<PDBASTParser> m_pdb_ast_parser_up;
   std::unique_ptr<npdb::PdbAstBuilder> m_native_pdb_ast_parser_up;
 #endif
   std::unique_ptr<clang::MangleContext> m_mangle_ctx_up;
   uint32_t m_pointer_byte_size = 0;
   bool m_ast_owned = false;
-  /// A string describing what this TypeSystemClang represents (e.g.,
+  /// A string describing what this TypeSystemMiniLLVM represents (e.g.,
   /// AST for debug information, an expression, some other utility ClangAST).
   /// Useful for logging and debugging.
   std::string m_display_name;
@@ -1225,24 +1225,24 @@ private:
   /// ASTContext wasn't created by parsing source code.
   clang::Sema *m_sema = nullptr;
 
-  // For TypeSystemClang only
-  TypeSystemClang(const TypeSystemClang &);
-  const TypeSystemClang &operator=(const TypeSystemClang &);
+  // For TypeSystemMiniLLVM only
+  TypeSystemMiniLLVM(const TypeSystemMiniLLVM &);
+  const TypeSystemMiniLLVM &operator=(const TypeSystemMiniLLVM &);
   /// Creates the internal ASTContext.
   void CreateASTContext();
   void SetTargetTriple(llvm::StringRef target_triple);
 };
 
-/// The TypeSystemClang instance used for the scratch ASTContext in a
+/// The TypeSystemMiniLLVM instance used for the scratch ASTContext in a
 /// lldb::Target.
-class ScratchTypeSystemClang : public TypeSystemClang {
+class ScratchTypeSystemMiniLLVM : public TypeSystemMiniLLVM {
   /// LLVM RTTI support
   static char ID;
 
 public:
-  ScratchTypeSystemClang(Target &target, llvm::Triple triple);
+  ScratchTypeSystemMiniLLVM(Target &target, llvm::Triple triple);
 
-  ~ScratchTypeSystemClang() override = default;
+  ~ScratchTypeSystemMiniLLVM() override = default;
 
   void Finalize() override;
 
@@ -1259,7 +1259,7 @@ public:
     CppModules
   };
 
-  /// Alias for requesting the default scratch TypeSystemClang in GetForTarget.
+  /// Alias for requesting the default scratch TypeSystemMiniLLVM in GetForTarget.
   // This isn't constexpr as gtest/std::optional comparison logic is trying
   // to get the address of this for pretty-printing.
   static const std::nullopt_t DefaultAST;
@@ -1274,28 +1274,28 @@ public:
     return DefaultAST;
   }
 
-  /// Returns the scratch TypeSystemClang for the given target.
-  /// \param target The Target which scratch TypeSystemClang should be returned.
+  /// Returns the scratch TypeSystemMiniLLVM for the given target.
+  /// \param target The Target which scratch TypeSystemMiniLLVM should be returned.
   /// \param ast_kind Allows requesting a specific sub-AST instead of the
   ///                 default scratch AST. See also `IsolatedASTKind`.
-  /// \param create_on_demand If the scratch TypeSystemClang instance can be
+  /// \param create_on_demand If the scratch TypeSystemMiniLLVM instance can be
   /// created by this call if it doesn't exist yet. If it doesn't exist yet and
   /// this parameter is false, this function returns a nullptr.
   /// \return The scratch type system of the target or a nullptr in case an
   ///         error occurred.
-  static lldb::TypeSystemClangSP
+  static lldb::TypeSystemMiniLLVMSP
   GetForTarget(Target &target,
                std::optional<IsolatedASTKind> ast_kind = DefaultAST,
                bool create_on_demand = true);
 
-  /// Returns the scratch TypeSystemClang for the given target. The returned
-  /// TypeSystemClang will be the scratch AST or a sub-AST, depending on which
+  /// Returns the scratch TypeSystemMiniLLVM for the given target. The returned
+  /// TypeSystemMiniLLVM will be the scratch AST or a sub-AST, depending on which
   /// fits best to the passed LangOptions.
-  /// \param target The Target which scratch TypeSystemClang should be returned.
+  /// \param target The Target which scratch TypeSystemMiniLLVM should be returned.
   /// \param lang_opts The LangOptions of a clang ASTContext that the caller
   ///                  wants to export type information from. This is used to
   ///                  find the best matching sub-AST that will be returned.
-  static lldb::TypeSystemClangSP
+  static lldb::TypeSystemMiniLLVMSP
   GetForTarget(Target &target, const clang::LangOptions &lang_opts) {
     return GetForTarget(target, InferIsolatedASTKindFromLangOpts(lang_opts));
   }
@@ -1327,7 +1327,7 @@ public:
 
   // llvm casting support
   bool isA(const void *ClassID) const override {
-    return ClassID == &ID || TypeSystemClang::isA(ClassID);
+    return ClassID == &ID || TypeSystemMiniLLVM::isA(ClassID);
   }
   static bool classof(const TypeSystem *ts) { return ts->isA(&ID); }
 
@@ -1335,7 +1335,7 @@ private:
   std::unique_ptr<ClangASTSource> CreateASTSource();
   /// Returns the requested sub-AST.
   /// Will lazily create the sub-AST if it hasn't been created before.
-  TypeSystemClang &GetIsolatedAST(IsolatedASTKind feature);
+  TypeSystemMiniLLVM &GetIsolatedAST(IsolatedASTKind feature);
 
   /// The target triple.
   /// This was potentially adjusted and might not be identical to the triple
@@ -1352,13 +1352,13 @@ private:
   // FIXME: GCC 5.x doesn't support enum as map keys.
   typedef int IsolatedASTKey;
 
-  /// Map from IsolatedASTKind to their actual TypeSystemClang instance.
+  /// Map from IsolatedASTKind to their actual TypeSystemMiniLLVM instance.
   /// This map is lazily filled with sub-ASTs and should be accessed via
   /// `GetSubAST` (which lazily fills this map).
-  llvm::DenseMap<IsolatedASTKey, std::shared_ptr<TypeSystemClang>>
+  llvm::DenseMap<IsolatedASTKey, std::shared_ptr<TypeSystemMiniLLVM>>
       m_isolated_asts;
 };
 
 } // namespace lldb_private
 
-#endif // LLDB_SOURCE_PLUGINS_TYPESYSTEM_CLANG_TYPESYSTEMCLANG_H
+#endif // LLDB_SOURCE_PLUGINS_TYPESYSTEM_MINILLVM_TYPESYSTEMINILLVM_H

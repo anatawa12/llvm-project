@@ -311,6 +311,7 @@ Status PlatformPOSIX::ConnectRemote(Args &args) {
         "can't connect to the host platform '{0}', always connected",
         GetPluginName());
   } else {
+#if CONSOLE_LOG_SAVER
     if (!m_remote_platform_sp)
       m_remote_platform_sp =
           platform_gdb_server::PlatformRemoteGDBServer::CreateInstance(
@@ -324,6 +325,10 @@ Status PlatformPOSIX::ConnectRemote(Args &args) {
 
     if (error.Fail())
       m_remote_platform_sp.reset();
+#else
+    error = Status::FromErrorString(
+        "disabled 'remote-gdb-server' platform");
+#endif
   }
 
   if (error.Success() && m_remote_platform_sp) {
@@ -551,6 +556,7 @@ Status PlatformPOSIX::EvaluateLibdlExpression(
 std::unique_ptr<UtilityFunction>
 PlatformPOSIX::MakeLoadImageUtilityFunction(ExecutionContext &exe_ctx,
                                             Status &error) {
+#ifdef CONSOLE_LOG_SAVER
   // Remember to prepend this with the prefix from
   // GetLibdlFunctionDeclarations. The returned values are all in
   // __lldb_dlopen_result for consistency. The wrapper returns a void * but
@@ -613,16 +619,148 @@ PlatformPOSIX::MakeLoadImageUtilityFunction(ExecutionContext &exe_ctx,
   }
   )";
 
+#else
+  static const char *dlopen_wrapper_minillvm_code = R"(
+#!mini-llvm
+
+push_type ptr
+push_type ptr
+define_struct __lldb_dlopen_result
+;%struct.__lldb_dlopen_result = type { ptr, ptr }
+
+;@RTLD_LAZY = local_unnamed_addr constant i32 1, align 4
+
+
+; declare ptr @dlopen(ptr, i32)
+push_type ptr
+push_type i32
+define_function_type ptr dlopen
+declare_function dlopen dlopen
+
+; declare ptr @dlerror()
+define_function_type ptr dlerror
+declare_function dlerror dlerror
+
+
+; declare iptr @strlen(ptr)
+push_type ptr
+define_function_type iptr strlen
+declare_function strlen strlen
+
+; llvm.memcpy.p0.p0.iptr is built-in
+; Function Attrs: mustprogress nocallback nofree nounwind willreturn memory(argmem: readwrite)
+; declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #3
+
+
+; define ptr @__lldb_dlopen_wrapper(ptr %0, ptr %1, ptr %2, ptr %3) {
+push_type ptr
+push_type ptr
+push_type ptr
+push_type ptr
+define_function_type ptr __lldb_dlopen_wrapper
+define_function __lldb_dlopen_wrapper __lldb_dlopen_wrapper 11
+
+; constants
+const iptr_0 iptr 0
+const iptr_1 iptr 1
+const i32_1  i32  1
+const i8_0   i8   0
+const i8_47  i8   47                ; '/'
+
+begin_block 0
+  icmp %5 eq %1 null                ; %5 = icmp eq ptr %1, null
+  cond_br %5 1 3                    ; br i1 %5, label %6, label %11
+
+begin_block 1                       ; block %6
+  push_value %0
+  push_value i32_1
+  call %7 dlopen dlopen             ; %7 = tail call ptr @dlopen(ptr noundef %0, i32 noundef 1) #4
+  store %7 %3                       ; store ptr %7, ptr %3, align 8, !tbaa !6
+  icmp %8 eq %7 null                ; %8 = icmp eq ptr %7, null
+  cond_br %8 2 9                    ; br i1 %8, label %9, label %32
+
+begin_block 2                       ; block 9; preds = %6
+  call %10 dlerror dlerror          ; %10 = tail call ptr @dlerror() #4
+  br 9                              ; br label %32
+
+begin_block 3                       ; block 11; preds = %4
+  push_value %0
+  call %12 strlen strlen            ; %12 = tail call iptr @strlen(ptr noundef nonnull dereferenceable(1) %0)
+  add %13 %12 iptr_1                ; %13 = add iptr %12, 1
+  getelementptr %14 __lldb_dlopen_result %3 iptr_0 i32_1    ; %14 = getelementptr %struct.__lldb_dlopen_result, ptr %3, iptr 0, i32 1
+  br 4                              ; br label %15
+
+begin_block 4                       ; block 15; preds = %30, %11
+  phi %16 ptr 2 %1 3 %31 8          ; %16 = phi ptr [ %1, %11 ], [ %31, %30 ]
+  load %17 i8 %16                   ; %17 = load i8, ptr %16, align 1, !tbaa !11
+  icmp %18 eq %17 i8_0              ; %18 = icmp eq i8 %17, 0
+  cond_br %18 10 5                  ; br i1 %18, label %35, label %19
+
+begin_block 5                       ; block 19; preds = %15
+  push_value %16
+  call %20 strlen strlen            ; %20 = tail call iptr @strlen(ptr noundef nonnull dereferenceable(1) %16)
+  push_value %2
+  push_value %16
+  push_value %20
+  push_value false
+  call _ llvm.memcpy.p0.p0.iptr llvm.memcpy.p0.p0.iptr      ; tail call void @llvm.memcpy.p0.p0.iptr(ptr align 1 %2, ptr nonnull align 1 %16, iptr %20, i1 false)
+  getelementptr %21 i8 %2 %20       ; %21 = getelementptr inbounds i8, ptr %2, iptr %20
+  store i8_47 %21                   ; store i8 47, ptr %21, align 1, !tbaa !11
+  getelementptr %22 i8 %21 iptr_1   ; %22 = getelementptr inbounds i8, ptr %21, iptr 1
+  push_value %22
+  push_value %0
+  push_value %13
+  push_value false
+  call _ llvm.memcpy.p0.p0.iptr llvm.memcpy.p0.p0.iptr      ; tail call void @llvm.memcpy.p0.p0.iptr(ptr nonnull align 1 %22, ptr align 1 %0, iptr %13, i1 false)
+  push_value %2
+  push_value i32_1
+  call %23 dlopen dlopen            ; %23 = tail call ptr @dlopen(ptr noundef %2, i32 noundef 1) #4
+  store %23 %3                      ; store ptr %23, ptr %3, align 8, !tbaa !6
+  icmp %24 eq %23 null              ; %24 = icmp eq ptr %23, null
+  cond_br %24 7 6                   ; br i1 %24, label %26, label %25
+
+begin_block 6                       ; block 25; preds = %19
+  store null %14                    ; store ptr null, ptr %14, align 8, !tbaa !12
+  br 8                              ; br label %30
+
+begin_block 7                       ; block 26; preds = %19
+  call %27 dlerror dlerror          ; %27 = tail call ptr @dlerror() #4
+  store %27 %14                     ; store ptr %27, ptr %14, align 8, !tbaa !12
+  getelementptr %28 i8 %16 %20      ; %28 = getelementptr inbounds i8, ptr %16, iptr %20
+  getelementptr %29 i8 %27 iptr_1   ; %29 = getelementptr inbounds i8, ptr %28, i64 1
+  br 8                              ; br label %30
+
+begin_block 8                       ; block 30; preds = %26, %25
+  phi %31 ptr 2 %16 6  %29 7        ; %31 = phi ptr [ %16, %25 ], [ %29, %26 ]
+  cond_br %24 4 10                  ; br i1 %24, label %15, label %35
+
+begin_block 9                       ; block 32; preds = %6, %9
+  phi %33 ptr 2 %10 2 null 1        ; %33 = phi ptr [ %10, %9 ], [ null, %6 ]
+  getelementptr %34 __lldb_dlopen_result %3 iptr_0 i32_1  ; %34 = getelementptr inbounds %struct.__lldb_dlopen_result, ptr %3, i64 0, i32 1
+  store %33 %34                     ; store ptr %33, ptr %34, align 8, !tbaa !12
+  br 10                             ; br label %35
+
+begin_block 10                      ; block 35; preds = %15, %30, %32
+  ret null
+)";
+#endif
+
   static const char *dlopen_wrapper_name = "__lldb_dlopen_wrapper";
   Process *process = exe_ctx.GetProcessSP().get();
+#ifdef CONSOLE_LOG_SAVER
   // Insert the dlopen shim defines into our generic expression:
   std::string expr(std::string(GetLibdlFunctionDeclarations(process)));
   expr.append(dlopen_wrapper_code);
+#endif
   Status utility_error;
   DiagnosticManager diagnostics;
 
   auto utility_fn_or_error = process->GetTarget().CreateUtilityFunction(
+#ifdef CONSOLE_LOG_SAVER
       std::move(expr), dlopen_wrapper_name, eLanguageTypeC_plus_plus, exe_ctx);
+#else
+      std::string(dlopen_wrapper_minillvm_code), dlopen_wrapper_name, eLanguageTypeMiniLLVM, exe_ctx);
+#endif
   if (!utility_fn_or_error) {
     std::string error_str = llvm::toString(utility_fn_or_error.takeError());
     error = Status::FromErrorStringWithFormat(

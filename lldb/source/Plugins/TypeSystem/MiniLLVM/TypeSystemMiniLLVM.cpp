@@ -1,4 +1,4 @@
-//===-- TypeSystemClang.cpp -----------------------------------------------===//
+//===-- TypeSystemMiniLLVM.cpp -----------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "TypeSystemClang.h"
+#include "TypeSystemMiniLLVM.h"
 
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/ExprCXX.h"
@@ -85,9 +85,7 @@
 #include <mutex>
 #include <optional>
 
-#ifndef CONSOLE_LOG_SAVER
 #include "Plugins/ExpressionParser/Clang/MiniLLVMUtilityFunction.h"
-#endif
 
 using namespace lldb;
 using namespace lldb_private;
@@ -96,7 +94,7 @@ using namespace lldb_private::plugin::dwarf;
 using namespace clang;
 using llvm::StringSwitch;
 
-LLDB_PLUGIN_DEFINE(TypeSystemClang)
+LLDB_PLUGIN_DEFINE(TypeSystemMiniLLVM)
 
 namespace {
 static void VerifyDecl(clang::Decl *decl) {
@@ -109,21 +107,8 @@ static void VerifyDecl(clang::Decl *decl) {
 }
 
 static inline bool
-TypeSystemClangSupportsLanguage(lldb::LanguageType language) {
-  return language == eLanguageTypeUnknown || // Clang is the default type system
-         lldb_private::Language::LanguageIsC(language) ||
-         lldb_private::Language::LanguageIsCPlusPlus(language) ||
-         lldb_private::Language::LanguageIsObjC(language) ||
-         lldb_private::Language::LanguageIsPascal(language) ||
-         // Use Clang for Rust until there is a proper language plugin for it
-         language == eLanguageTypeRust ||
-         // Use Clang for D until there is a proper language plugin for it
-         language == eLanguageTypeD ||
-#ifndef CONSOLE_LOG_SAVER
-         language == eLanguageTypeMiniLLVM || // TODO: split to another type system
-#endif
-         // Open Dylan compiler debug info is designed to be Clang-compatible
-         language == eLanguageTypeDylan;
+TypeSystemMiniLLVMSupportsLanguage(lldb::LanguageType language) {
+  return language == eLanguageTypeMiniLLVM;
 }
 
 // Checks whether m1 is an overload of m2 (as opposed to an override). This is
@@ -322,7 +307,7 @@ static bool GetVBaseBitOffset(VTableContextBase &vtable_ctx,
   return true;
 }
 
-typedef lldb_private::ThreadSafeDenseMap<clang::ASTContext *, TypeSystemClang *>
+typedef lldb_private::ThreadSafeDenseMap<clang::ASTContext *, TypeSystemMiniLLVM *>
     ClangASTMap;
 
 static ClangASTMap &GetASTMap() {
@@ -368,9 +353,9 @@ static void SetMemberOwningModule(clang::Decl *member,
     }
 }
 
-char TypeSystemClang::ID;
+char TypeSystemMiniLLVM::ID;
 
-bool TypeSystemClang::IsOperator(llvm::StringRef name,
+bool TypeSystemMiniLLVM::IsOperator(llvm::StringRef name,
                                  clang::OverloadedOperatorKind &op_kind) {
   // All operators have to start with "operator".
   if (!name.consume_front("operator"))
@@ -452,7 +437,7 @@ bool TypeSystemClang::IsOperator(llvm::StringRef name,
 }
 
 clang::AccessSpecifier
-TypeSystemClang::ConvertAccessTypeToAccessSpecifier(AccessType access) {
+TypeSystemMiniLLVM::ConvertAccessTypeToAccessSpecifier(AccessType access) {
   switch (access) {
   default:
     break;
@@ -501,19 +486,19 @@ static void ParseLangArgs(LangOptions &Opts, ArchSpec arch) {
   Opts.ModulesLocalVisibility = 1;
 }
 
-TypeSystemClang::TypeSystemClang(llvm::StringRef name,
+TypeSystemMiniLLVM::TypeSystemMiniLLVM(llvm::StringRef name,
                                  llvm::Triple target_triple) {
   m_display_name = name.str();
   if (!target_triple.str().empty())
     SetTargetTriple(target_triple.str());
   // The caller didn't pass an ASTContext so create a new one for this
-  // TypeSystemClang.
+  // TypeSystemMiniLLVM.
   CreateASTContext();
 
   LogCreation();
 }
 
-TypeSystemClang::TypeSystemClang(llvm::StringRef name,
+TypeSystemMiniLLVM::TypeSystemMiniLLVM(llvm::StringRef name,
                                  ASTContext &existing_ctxt) {
   m_display_name = name.str();
   SetTargetTriple(existing_ctxt.getTargetInfo().getTriple().str());
@@ -525,12 +510,12 @@ TypeSystemClang::TypeSystemClang(llvm::StringRef name,
 }
 
 // Destructor
-TypeSystemClang::~TypeSystemClang() { Finalize(); }
+TypeSystemMiniLLVM::~TypeSystemMiniLLVM() { Finalize(); }
 
-lldb::TypeSystemSP TypeSystemClang::CreateInstance(lldb::LanguageType language,
+lldb::TypeSystemSP TypeSystemMiniLLVM::CreateInstance(lldb::LanguageType language,
                                                    lldb_private::Module *module,
                                                    Target *target) {
-  if (!TypeSystemClangSupportsLanguage(language))
+  if (!TypeSystemMiniLLVMSupportsLanguage(language))
     return lldb::TypeSystemSP();
   ArchSpec arch;
   if (module)
@@ -559,13 +544,13 @@ lldb::TypeSystemSP TypeSystemClang::CreateInstance(lldb::LanguageType language,
   if (module) {
     std::string ast_name =
         "ASTContext for '" + module->GetFileSpec().GetPath() + "'";
-    return std::make_shared<TypeSystemClang>(ast_name, triple);
+    return std::make_shared<TypeSystemMiniLLVM>(ast_name, triple);
   } else if (target && target->IsValid())
-    return std::make_shared<ScratchTypeSystemClang>(*target, triple);
+    return std::make_shared<ScratchTypeSystemMiniLLVM>(*target, triple);
   return lldb::TypeSystemSP();
 }
 
-LanguageSet TypeSystemClang::GetSupportedLanguagesForTypes() {
+LanguageSet TypeSystemMiniLLVM::GetSupportedLanguagesForTypes() {
   LanguageSet languages;
   languages.Insert(lldb::eLanguageTypeC89);
   languages.Insert(lldb::eLanguageTypeC);
@@ -583,7 +568,7 @@ LanguageSet TypeSystemClang::GetSupportedLanguagesForTypes() {
   return languages;
 }
 
-LanguageSet TypeSystemClang::GetSupportedLanguagesForExpressions() {
+LanguageSet TypeSystemMiniLLVM::GetSupportedLanguagesForExpressions() {
   LanguageSet languages;
   languages.Insert(lldb::eLanguageTypeC_plus_plus);
   languages.Insert(lldb::eLanguageTypeObjC_plus_plus);
@@ -595,17 +580,17 @@ LanguageSet TypeSystemClang::GetSupportedLanguagesForExpressions() {
   return languages;
 }
 
-void TypeSystemClang::Initialize() {
+void TypeSystemMiniLLVM::Initialize() {
   PluginManager::RegisterPlugin(
       GetPluginNameStatic(), "clang base AST context plug-in", CreateInstance,
       GetSupportedLanguagesForTypes(), GetSupportedLanguagesForExpressions());
 }
 
-void TypeSystemClang::Terminate() {
+void TypeSystemMiniLLVM::Terminate() {
   PluginManager::UnregisterPlugin(CreateInstance);
 }
 
-void TypeSystemClang::Finalize() {
+void TypeSystemMiniLLVM::Finalize() {
   assert(m_ast_up);
   GetASTMap().Erase(m_ast_up.get());
   if (!m_ast_owned)
@@ -621,28 +606,28 @@ void TypeSystemClang::Finalize() {
   m_language_options_up.reset();
 }
 
-void TypeSystemClang::setSema(Sema *s) {
+void TypeSystemMiniLLVM::setSema(Sema *s) {
   // Ensure that the new sema actually belongs to our ASTContext.
   assert(s == nullptr || &s->getASTContext() == m_ast_up.get());
   m_sema = s;
 }
 
-const char *TypeSystemClang::GetTargetTriple() {
+const char *TypeSystemMiniLLVM::GetTargetTriple() {
   return m_target_triple.c_str();
 }
 
-void TypeSystemClang::SetTargetTriple(llvm::StringRef target_triple) {
+void TypeSystemMiniLLVM::SetTargetTriple(llvm::StringRef target_triple) {
   m_target_triple = target_triple.str();
 }
 
-void TypeSystemClang::SetExternalSource(
+void TypeSystemMiniLLVM::SetExternalSource(
     llvm::IntrusiveRefCntPtr<ExternalASTSource> &ast_source_up) {
   ASTContext &ast = getASTContext();
   ast.getTranslationUnitDecl()->setHasExternalLexicalStorage(true);
   ast.setExternalSource(ast_source_up);
 }
 
-ASTContext &TypeSystemClang::getASTContext() const {
+ASTContext &TypeSystemMiniLLVM::getASTContext() const {
   assert(m_ast_up);
   return *m_ast_up;
 }
@@ -669,7 +654,7 @@ private:
   Log *m_log;
 };
 
-void TypeSystemClang::CreateASTContext() {
+void TypeSystemMiniLLVM::CreateASTContext() {
   assert(!m_ast_up);
   m_ast_owned = true;
 
@@ -727,18 +712,18 @@ void TypeSystemClang::CreateASTContext() {
   SetExternalSource(ast_source_up);
 }
 
-TypeSystemClang *TypeSystemClang::GetASTContext(clang::ASTContext *ast) {
-  TypeSystemClang *clang_ast = GetASTMap().Lookup(ast);
+TypeSystemMiniLLVM *TypeSystemMiniLLVM::GetASTContext(clang::ASTContext *ast) {
+  TypeSystemMiniLLVM *clang_ast = GetASTMap().Lookup(ast);
   return clang_ast;
 }
 
-clang::MangleContext *TypeSystemClang::getMangleContext() {
+clang::MangleContext *TypeSystemMiniLLVM::getMangleContext() {
   if (m_mangle_ctx_up == nullptr)
     m_mangle_ctx_up.reset(getASTContext().createMangleContext());
   return m_mangle_ctx_up.get();
 }
 
-std::shared_ptr<clang::TargetOptions> &TypeSystemClang::getTargetOptions() {
+std::shared_ptr<clang::TargetOptions> &TypeSystemMiniLLVM::getTargetOptions() {
   if (m_target_options_rp == nullptr && !m_target_triple.empty()) {
     m_target_options_rp = std::make_shared<clang::TargetOptions>();
     if (m_target_options_rp != nullptr)
@@ -747,7 +732,7 @@ std::shared_ptr<clang::TargetOptions> &TypeSystemClang::getTargetOptions() {
   return m_target_options_rp;
 }
 
-TargetInfo *TypeSystemClang::getTargetInfo() {
+TargetInfo *TypeSystemMiniLLVM::getTargetInfo() {
   // target_triple should be something like "x86_64-apple-macosx"
   if (m_target_info_up == nullptr && !m_target_triple.empty())
     m_target_info_up.reset(TargetInfo::CreateTargetInfo(
@@ -764,7 +749,7 @@ static inline bool QualTypeMatchesBitSize(const uint64_t bit_size,
 }
 
 CompilerType
-TypeSystemClang::GetBuiltinTypeForEncodingAndBitSize(Encoding encoding,
+TypeSystemMiniLLVM::GetBuiltinTypeForEncodingAndBitSize(Encoding encoding,
                                                      size_t bit_size) {
   ASTContext &ast = getASTContext();
 
@@ -828,7 +813,7 @@ TypeSystemClang::GetBuiltinTypeForEncodingAndBitSize(Encoding encoding,
   return CompilerType();
 }
 
-lldb::BasicType TypeSystemClang::GetBasicTypeEnumeration(llvm::StringRef name) {
+lldb::BasicType TypeSystemMiniLLVM::GetBasicTypeEnumeration(llvm::StringRef name) {
   static const llvm::StringMap<lldb::BasicType> g_type_map = {
       // "void"
       {"void", eBasicTypeVoid},
@@ -889,7 +874,7 @@ lldb::BasicType TypeSystemClang::GetBasicTypeEnumeration(llvm::StringRef name) {
   return iter->second;
 }
 
-uint32_t TypeSystemClang::GetPointerByteSize() {
+uint32_t TypeSystemMiniLLVM::GetPointerByteSize() {
   if (m_pointer_byte_size == 0)
     if (auto size = GetBasicType(lldb::eBasicTypeVoid)
                         .GetPointerType()
@@ -898,7 +883,7 @@ uint32_t TypeSystemClang::GetPointerByteSize() {
   return m_pointer_byte_size;
 }
 
-CompilerType TypeSystemClang::GetBasicType(lldb::BasicType basic_type) {
+CompilerType TypeSystemMiniLLVM::GetBasicType(lldb::BasicType basic_type) {
   clang::ASTContext &ast = getASTContext();
 
   lldb::opaque_compiler_type_t clang_type =
@@ -909,7 +894,7 @@ CompilerType TypeSystemClang::GetBasicType(lldb::BasicType basic_type) {
   return CompilerType();
 }
 
-CompilerType TypeSystemClang::GetBuiltinTypeForDWARFEncodingAndBitSize(
+CompilerType TypeSystemMiniLLVM::GetBuiltinTypeForDWARFEncodingAndBitSize(
     llvm::StringRef type_name, uint32_t dw_ate, uint32_t bit_size) {
   ASTContext &ast = getASTContext();
 
@@ -1130,7 +1115,7 @@ CompilerType TypeSystemClang::GetBuiltinTypeForDWARFEncodingAndBitSize(
   return CompilerType();
 }
 
-CompilerType TypeSystemClang::GetCStringType(bool is_const) {
+CompilerType TypeSystemMiniLLVM::GetCStringType(bool is_const) {
   ASTContext &ast = getASTContext();
   QualType char_type(ast.CharTy);
 
@@ -1140,9 +1125,9 @@ CompilerType TypeSystemClang::GetCStringType(bool is_const) {
   return GetType(ast.getPointerType(char_type));
 }
 
-bool TypeSystemClang::AreTypesSame(CompilerType type1, CompilerType type2,
+bool TypeSystemMiniLLVM::AreTypesSame(CompilerType type1, CompilerType type2,
                                    bool ignore_qualifiers) {
-  auto ast = type1.GetTypeSystem().dyn_cast_or_null<TypeSystemClang>();
+  auto ast = type1.GetTypeSystem().dyn_cast_or_null<TypeSystemMiniLLVM>();
   if (!ast || type1.GetTypeSystem() != type2.GetTypeSystem())
     return false;
 
@@ -1160,7 +1145,7 @@ bool TypeSystemClang::AreTypesSame(CompilerType type1, CompilerType type2,
   return ast->getASTContext().hasSameType(type1_qual, type2_qual);
 }
 
-CompilerType TypeSystemClang::GetTypeForDecl(void *opaque_decl) {
+CompilerType TypeSystemMiniLLVM::GetTypeForDecl(void *opaque_decl) {
   if (!opaque_decl)
     return CompilerType();
 
@@ -1170,13 +1155,13 @@ CompilerType TypeSystemClang::GetTypeForDecl(void *opaque_decl) {
   return CompilerType();
 }
 
-CompilerDeclContext TypeSystemClang::CreateDeclContext(DeclContext *ctx) {
+CompilerDeclContext TypeSystemMiniLLVM::CreateDeclContext(DeclContext *ctx) {
   // Check that the DeclContext actually belongs to this ASTContext.
   assert(&ctx->getParentASTContext() == &getASTContext());
   return CompilerDeclContext(this, ctx);
 }
 
-CompilerType TypeSystemClang::GetTypeForDecl(clang::NamedDecl *decl) {
+CompilerType TypeSystemMiniLLVM::GetTypeForDecl(clang::NamedDecl *decl) {
   if (clang::ObjCInterfaceDecl *interface_decl =
       llvm::dyn_cast<clang::ObjCInterfaceDecl>(decl))
     return GetTypeForDecl(interface_decl);
@@ -1187,21 +1172,21 @@ CompilerType TypeSystemClang::GetTypeForDecl(clang::NamedDecl *decl) {
   return CompilerType();
 }
 
-CompilerType TypeSystemClang::GetTypeForDecl(TagDecl *decl) {
+CompilerType TypeSystemMiniLLVM::GetTypeForDecl(TagDecl *decl) {
   return GetType(getASTContext().getTagDeclType(decl));
 }
 
-CompilerType TypeSystemClang::GetTypeForDecl(ObjCInterfaceDecl *decl) {
+CompilerType TypeSystemMiniLLVM::GetTypeForDecl(ObjCInterfaceDecl *decl) {
   return GetType(getASTContext().getObjCInterfaceType(decl));
 }
 
-CompilerType TypeSystemClang::GetTypeForDecl(clang::ValueDecl *value_decl) {
+CompilerType TypeSystemMiniLLVM::GetTypeForDecl(clang::ValueDecl *value_decl) {
   return GetType(value_decl->getType());
 }
 
 #pragma mark Structure, Unions, Classes
 
-void TypeSystemClang::SetOwningModule(clang::Decl *decl,
+void TypeSystemMiniLLVM::SetOwningModule(clang::Decl *decl,
                                       OptionalClangModuleID owning_module) {
   if (!decl || !owning_module.HasValue())
     return;
@@ -1212,7 +1197,7 @@ void TypeSystemClang::SetOwningModule(clang::Decl *decl,
 }
 
 OptionalClangModuleID
-TypeSystemClang::GetOrCreateClangModule(llvm::StringRef name,
+TypeSystemMiniLLVM::GetOrCreateClangModule(llvm::StringRef name,
                                         OptionalClangModuleID parent,
                                         bool is_framework, bool is_explicit) {
   // Get the external AST source which holds the modules.
@@ -1246,7 +1231,7 @@ TypeSystemClang::GetOrCreateClangModule(llvm::StringRef name,
   return ast_source->RegisterModule(module);
 }
 
-CompilerType TypeSystemClang::CreateRecordType(
+CompilerType TypeSystemMiniLLVM::CreateRecordType(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     AccessType access_type, llvm::StringRef name, int kind,
     LanguageType language, std::optional<ClangASTMetadata> metadata,
@@ -1350,7 +1335,7 @@ void AddAccessSpecifierDecl(clang::CXXRecordDecl *cxx_record_decl,
 
 static TemplateParameterList *CreateTemplateParameterList(
     ASTContext &ast,
-    const TypeSystemClang::TemplateParameterInfos &template_param_infos,
+    const TypeSystemMiniLLVM::TemplateParameterInfos &template_param_infos,
     llvm::SmallVector<NamedDecl *, 8> &template_param_decls) {
   const bool parameter_pack = false;
   const bool is_typename = false;
@@ -1410,7 +1395,7 @@ static TemplateParameterList *CreateTemplateParameterList(
   return template_param_list;
 }
 
-std::string TypeSystemClang::PrintTemplateParams(
+std::string TypeSystemMiniLLVM::PrintTemplateParams(
     const TemplateParameterInfos &template_param_infos) {
   llvm::SmallVector<NamedDecl *, 8> ignore;
   clang::TemplateParameterList *template_param_list =
@@ -1430,7 +1415,7 @@ std::string TypeSystemClang::PrintTemplateParams(
   return str;
 }
 
-clang::FunctionTemplateDecl *TypeSystemClang::CreateFunctionTemplateDecl(
+clang::FunctionTemplateDecl *TypeSystemMiniLLVM::CreateFunctionTemplateDecl(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     clang::FunctionDecl *func_decl,
     const TemplateParameterInfos &template_param_infos) {
@@ -1463,7 +1448,7 @@ clang::FunctionTemplateDecl *TypeSystemClang::CreateFunctionTemplateDecl(
   return func_tmpl_decl;
 }
 
-void TypeSystemClang::CreateFunctionTemplateSpecializationInfo(
+void TypeSystemMiniLLVM::CreateFunctionTemplateSpecializationInfo(
     FunctionDecl *func_decl, clang::FunctionTemplateDecl *func_tmpl_decl,
     const TemplateParameterInfos &infos) {
   TemplateArgumentList *template_args_ptr = TemplateArgumentList::CreateCopy(
@@ -1515,7 +1500,7 @@ static bool TemplateParameterAllowsValue(NamedDecl *param,
 /// example `bool, float` or `3` (as an integer parameter value).
 static bool ClassTemplateAllowsToInstantiationArgs(
     ClassTemplateDecl *class_template_decl,
-    const TypeSystemClang::TemplateParameterInfos &instantiation_values) {
+    const TypeSystemMiniLLVM::TemplateParameterInfos &instantiation_values) {
 
   TemplateParameterList &params = *class_template_decl->getTemplateParameters();
 
@@ -1567,7 +1552,7 @@ static bool ClassTemplateAllowsToInstantiationArgs(
   return class_template_decl;
 }
 
-ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
+ClassTemplateDecl *TypeSystemMiniLLVM::CreateClassTemplateDecl(
     DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     lldb::AccessType access_type, llvm::StringRef class_name, int kind,
     const TemplateParameterInfos &template_param_infos) {
@@ -1643,7 +1628,7 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
 }
 
 TemplateTemplateParmDecl *
-TypeSystemClang::CreateTemplateTemplateParmDecl(const char *template_name) {
+TypeSystemMiniLLVM::CreateTemplateTemplateParmDecl(const char *template_name) {
   ASTContext &ast = getASTContext();
 
   auto *decl_ctx = ast.getTranslationUnitDecl();
@@ -1651,7 +1636,7 @@ TypeSystemClang::CreateTemplateTemplateParmDecl(const char *template_name) {
   IdentifierInfo &identifier_info = ast.Idents.get(template_name);
   llvm::SmallVector<NamedDecl *, 8> template_param_decls;
 
-  TypeSystemClang::TemplateParameterInfos template_param_infos;
+  TypeSystemMiniLLVM::TemplateParameterInfos template_param_infos;
   TemplateParameterList *template_param_list = CreateTemplateParameterList(
       ast, template_param_infos, template_param_decls);
 
@@ -1667,7 +1652,7 @@ TypeSystemClang::CreateTemplateTemplateParmDecl(const char *template_name) {
 }
 
 ClassTemplateSpecializationDecl *
-TypeSystemClang::CreateClassTemplateSpecializationDecl(
+TypeSystemMiniLLVM::CreateClassTemplateSpecializationDecl(
     DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     ClassTemplateDecl *class_template_decl, int kind,
     const TemplateParameterInfos &template_param_infos) {
@@ -1702,7 +1687,7 @@ TypeSystemClang::CreateClassTemplateSpecializationDecl(
   return class_template_specialization_decl;
 }
 
-CompilerType TypeSystemClang::CreateClassTemplateSpecializationType(
+CompilerType TypeSystemMiniLLVM::CreateClassTemplateSpecializationType(
     ClassTemplateSpecializationDecl *class_template_specialization_decl) {
   if (class_template_specialization_decl) {
     ASTContext &ast = getASTContext();
@@ -1730,7 +1715,7 @@ static inline bool check_op_param(bool is_method,
     return false;
 }
 
-bool TypeSystemClang::CheckOverloadedOperatorKindParameterCount(
+bool TypeSystemMiniLLVM::CheckOverloadedOperatorKindParameterCount(
     bool is_method, clang::OverloadedOperatorKind op_kind,
     uint32_t num_params) {
   switch (op_kind) {
@@ -1756,7 +1741,7 @@ bool TypeSystemClang::CheckOverloadedOperatorKindParameterCount(
 }
 
 clang::AccessSpecifier
-TypeSystemClang::UnifyAccessSpecifiers(clang::AccessSpecifier lhs,
+TypeSystemMiniLLVM::UnifyAccessSpecifiers(clang::AccessSpecifier lhs,
                                        clang::AccessSpecifier rhs) {
   // Make the access equal to the stricter of the field and the nested field's
   // access
@@ -1769,7 +1754,7 @@ TypeSystemClang::UnifyAccessSpecifiers(clang::AccessSpecifier lhs,
   return AS_public;
 }
 
-bool TypeSystemClang::FieldIsBitfield(FieldDecl *field,
+bool TypeSystemMiniLLVM::FieldIsBitfield(FieldDecl *field,
                                       uint32_t &bitfield_bit_size) {
   ASTContext &ast = getASTContext();
   if (field == nullptr)
@@ -1788,7 +1773,7 @@ bool TypeSystemClang::FieldIsBitfield(FieldDecl *field,
   return false;
 }
 
-bool TypeSystemClang::RecordHasFields(const RecordDecl *record_decl) {
+bool TypeSystemMiniLLVM::RecordHasFields(const RecordDecl *record_decl) {
   if (record_decl == nullptr)
     return false;
 
@@ -1824,7 +1809,7 @@ bool TypeSystemClang::RecordHasFields(const RecordDecl *record_decl) {
 
 #pragma mark Objective-C Classes
 
-CompilerType TypeSystemClang::CreateObjCClass(
+CompilerType TypeSystemMiniLLVM::CreateObjCClass(
     llvm::StringRef name, clang::DeclContext *decl_ctx,
     OptionalClangModuleID owning_module, bool isInternal,
     std::optional<ClangASTMetadata> metadata) {
@@ -1846,12 +1831,12 @@ CompilerType TypeSystemClang::CreateObjCClass(
   return GetType(ast.getObjCInterfaceType(decl));
 }
 
-bool TypeSystemClang::BaseSpecifierIsEmpty(const CXXBaseSpecifier *b) {
-  return !TypeSystemClang::RecordHasFields(b->getType()->getAsCXXRecordDecl());
+bool TypeSystemMiniLLVM::BaseSpecifierIsEmpty(const CXXBaseSpecifier *b) {
+  return !TypeSystemMiniLLVM::RecordHasFields(b->getType()->getAsCXXRecordDecl());
 }
 
 uint32_t
-TypeSystemClang::GetNumBaseClasses(const CXXRecordDecl *cxx_record_decl,
+TypeSystemMiniLLVM::GetNumBaseClasses(const CXXRecordDecl *cxx_record_decl,
                                    bool omit_empty_base_classes) {
   uint32_t num_bases = 0;
   if (cxx_record_decl) {
@@ -1873,7 +1858,7 @@ TypeSystemClang::GetNumBaseClasses(const CXXRecordDecl *cxx_record_decl,
 
 #pragma mark Namespace Declarations
 
-NamespaceDecl *TypeSystemClang::GetUniqueNamespaceDeclaration(
+NamespaceDecl *TypeSystemMiniLLVM::GetUniqueNamespaceDeclaration(
     const char *name, clang::DeclContext *decl_ctx,
     OptionalClangModuleID owning_module, bool is_inline) {
   NamespaceDecl *namespace_decl = nullptr;
@@ -1937,7 +1922,7 @@ NamespaceDecl *TypeSystemClang::GetUniqueNamespaceDeclaration(
 }
 
 clang::BlockDecl *
-TypeSystemClang::CreateBlockDeclaration(clang::DeclContext *ctx,
+TypeSystemMiniLLVM::CreateBlockDeclaration(clang::DeclContext *ctx,
                                         OptionalClangModuleID owning_module) {
   if (ctx) {
     clang::BlockDecl *decl =
@@ -1967,7 +1952,7 @@ clang::DeclContext *FindLCABetweenDecls(clang::DeclContext *left,
   return nullptr;
 }
 
-clang::UsingDirectiveDecl *TypeSystemClang::CreateUsingDirectiveDeclaration(
+clang::UsingDirectiveDecl *TypeSystemMiniLLVM::CreateUsingDirectiveDeclaration(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     clang::NamespaceDecl *ns_decl) {
   if (decl_ctx && ns_decl) {
@@ -1986,7 +1971,7 @@ clang::UsingDirectiveDecl *TypeSystemClang::CreateUsingDirectiveDeclaration(
 }
 
 clang::UsingDecl *
-TypeSystemClang::CreateUsingDeclaration(clang::DeclContext *current_decl_ctx,
+TypeSystemMiniLLVM::CreateUsingDeclaration(clang::DeclContext *current_decl_ctx,
                                         OptionalClangModuleID owning_module,
                                         clang::NamedDecl *target) {
   if (current_decl_ctx && target) {
@@ -2005,7 +1990,7 @@ TypeSystemClang::CreateUsingDeclaration(clang::DeclContext *current_decl_ctx,
   return nullptr;
 }
 
-clang::VarDecl *TypeSystemClang::CreateVariableDeclaration(
+clang::VarDecl *TypeSystemMiniLLVM::CreateVariableDeclaration(
     clang::DeclContext *decl_context, OptionalClangModuleID owning_module,
     const char *name, clang::QualType type) {
   if (decl_context) {
@@ -2024,7 +2009,7 @@ clang::VarDecl *TypeSystemClang::CreateVariableDeclaration(
 }
 
 lldb::opaque_compiler_type_t
-TypeSystemClang::GetOpaqueCompilerType(clang::ASTContext *ast,
+TypeSystemMiniLLVM::GetOpaqueCompilerType(clang::ASTContext *ast,
                                        lldb::BasicType basic_type) {
   switch (basic_type) {
   case eBasicTypeVoid:
@@ -2099,7 +2084,7 @@ TypeSystemClang::GetOpaqueCompilerType(clang::ASTContext *ast,
 #pragma mark Function Types
 
 clang::DeclarationName
-TypeSystemClang::GetDeclarationName(llvm::StringRef name,
+TypeSystemMiniLLVM::GetDeclarationName(llvm::StringRef name,
                                     const CompilerType &function_clang_type) {
   clang::OverloadedOperatorKind op_kind = clang::NUM_OVERLOADED_OPERATORS;
   if (!IsOperator(name, op_kind) || op_kind == clang::NUM_OVERLOADED_OPERATORS)
@@ -2118,14 +2103,14 @@ TypeSystemClang::GetDeclarationName(llvm::StringRef name,
 
   const bool is_method = false;
   const unsigned int num_params = function_type->getNumParams();
-  if (!TypeSystemClang::CheckOverloadedOperatorKindParameterCount(
+  if (!TypeSystemMiniLLVM::CheckOverloadedOperatorKindParameterCount(
           is_method, op_kind, num_params))
     return clang::DeclarationName();
 
   return getASTContext().DeclarationNames.getCXXOperatorName(op_kind);
 }
 
-PrintingPolicy TypeSystemClang::GetTypePrintingPolicy() {
+PrintingPolicy TypeSystemMiniLLVM::GetTypePrintingPolicy() {
   clang::PrintingPolicy printing_policy(getASTContext().getPrintingPolicy());
   printing_policy.SuppressTagKeyword = true;
   // Inline namespaces are important for some type formatters (e.g., libc++
@@ -2147,7 +2132,7 @@ PrintingPolicy TypeSystemClang::GetTypePrintingPolicy() {
   return printing_policy;
 }
 
-std::string TypeSystemClang::GetTypeNameForDecl(const NamedDecl *named_decl,
+std::string TypeSystemMiniLLVM::GetTypeNameForDecl(const NamedDecl *named_decl,
                                                 bool qualified) {
   clang::PrintingPolicy printing_policy = GetTypePrintingPolicy();
   std::string result;
@@ -2156,7 +2141,7 @@ std::string TypeSystemClang::GetTypeNameForDecl(const NamedDecl *named_decl,
   return result;
 }
 
-FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(
+FunctionDecl *TypeSystemMiniLLVM::CreateFunctionDeclaration(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     llvm::StringRef name, const CompilerType &function_clang_type,
     clang::StorageClass storage, bool is_inline) {
@@ -2188,7 +2173,7 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(
   return func_decl;
 }
 
-CompilerType TypeSystemClang::CreateFunctionType(
+CompilerType TypeSystemMiniLLVM::CreateFunctionType(
     const CompilerType &result_type, const CompilerType *args,
     unsigned num_args, bool is_variadic, unsigned type_quals,
     clang::CallingConv cc, clang::RefQualifierKind ref_qual) {
@@ -2226,7 +2211,7 @@ CompilerType TypeSystemClang::CreateFunctionType(
       ClangUtil::GetQualType(result_type), qual_type_args, proto_info));
 }
 
-ParmVarDecl *TypeSystemClang::CreateParameterDeclaration(
+ParmVarDecl *TypeSystemMiniLLVM::CreateParameterDeclaration(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     const char *name, const CompilerType &param_type, int storage,
     bool add_decl) {
@@ -2244,14 +2229,14 @@ ParmVarDecl *TypeSystemClang::CreateParameterDeclaration(
   return decl;
 }
 
-void TypeSystemClang::SetFunctionParameters(
+void TypeSystemMiniLLVM::SetFunctionParameters(
     FunctionDecl *function_decl, llvm::ArrayRef<ParmVarDecl *> params) {
   if (function_decl)
     function_decl->setParams(params);
 }
 
 CompilerType
-TypeSystemClang::CreateBlockPointerType(const CompilerType &function_type) {
+TypeSystemMiniLLVM::CreateBlockPointerType(const CompilerType &function_type) {
   QualType block_type = m_ast_up->getBlockPointerType(
       clang::QualType::getFromOpaquePtr(function_type.GetOpaqueQualType()));
 
@@ -2261,7 +2246,7 @@ TypeSystemClang::CreateBlockPointerType(const CompilerType &function_type) {
 #pragma mark Array Types
 
 CompilerType
-TypeSystemClang::CreateArrayType(const CompilerType &element_type,
+TypeSystemMiniLLVM::CreateArrayType(const CompilerType &element_type,
                                  std::optional<size_t> element_count,
                                  bool is_vector) {
   if (!element_type.IsValid())
@@ -2287,7 +2272,7 @@ TypeSystemClang::CreateArrayType(const CompilerType &element_type,
                                           clang::ArraySizeModifier::Normal, 0));
 }
 
-CompilerType TypeSystemClang::CreateStructForIdentifier(
+CompilerType TypeSystemMiniLLVM::CreateStructForIdentifier(
     llvm::StringRef type_name,
     const std::initializer_list<std::pair<const char *, CompilerType>>
         &type_fields,
@@ -2313,7 +2298,7 @@ CompilerType TypeSystemClang::CreateStructForIdentifier(
   return type;
 }
 
-CompilerType TypeSystemClang::GetOrCreateStructForIdentifier(
+CompilerType TypeSystemMiniLLVM::GetOrCreateStructForIdentifier(
     llvm::StringRef type_name,
     const std::initializer_list<std::pair<const char *, CompilerType>>
         &type_fields,
@@ -2327,7 +2312,7 @@ CompilerType TypeSystemClang::GetOrCreateStructForIdentifier(
 
 #pragma mark Enumeration Types
 
-CompilerType TypeSystemClang::CreateEnumerationType(
+CompilerType TypeSystemMiniLLVM::CreateEnumerationType(
     llvm::StringRef name, clang::DeclContext *decl_ctx,
     OptionalClangModuleID owning_module, const Declaration &decl,
     const CompilerType &integer_clang_type, bool is_scoped) {
@@ -2356,7 +2341,7 @@ CompilerType TypeSystemClang::CreateEnumerationType(
   return GetType(ast.getTagDeclType(enum_decl));
 }
 
-CompilerType TypeSystemClang::GetIntTypeFromBitSize(size_t bit_size,
+CompilerType TypeSystemMiniLLVM::GetIntTypeFromBitSize(size_t bit_size,
                                                     bool is_signed) {
   clang::ASTContext &ast = getASTContext();
 
@@ -2403,7 +2388,7 @@ CompilerType TypeSystemClang::GetIntTypeFromBitSize(size_t bit_size,
   return CompilerType();
 }
 
-CompilerType TypeSystemClang::GetPointerSizedIntType(bool is_signed) {
+CompilerType TypeSystemMiniLLVM::GetPointerSizedIntType(bool is_signed) {
   if (!getASTContext().VoidPtrTy)
     return {};
 
@@ -2411,7 +2396,7 @@ CompilerType TypeSystemClang::GetPointerSizedIntType(bool is_signed) {
       getASTContext().getTypeSize(getASTContext().VoidPtrTy), is_signed);
 }
 
-void TypeSystemClang::DumpDeclContextHiearchy(clang::DeclContext *decl_ctx) {
+void TypeSystemMiniLLVM::DumpDeclContextHiearchy(clang::DeclContext *decl_ctx) {
   if (decl_ctx) {
     DumpDeclContextHiearchy(decl_ctx->getParent());
 
@@ -2425,7 +2410,7 @@ void TypeSystemClang::DumpDeclContextHiearchy(clang::DeclContext *decl_ctx) {
   }
 }
 
-void TypeSystemClang::DumpDeclHiearchy(clang::Decl *decl) {
+void TypeSystemMiniLLVM::DumpDeclHiearchy(clang::Decl *decl) {
   if (decl == nullptr)
     return;
   DumpDeclContextHiearchy(decl->getDeclContext());
@@ -2447,7 +2432,7 @@ void TypeSystemClang::DumpDeclHiearchy(clang::Decl *decl) {
   }
 }
 
-bool TypeSystemClang::GetCompleteDecl(clang::ASTContext *ast,
+bool TypeSystemMiniLLVM::GetCompleteDecl(clang::ASTContext *ast,
                                       clang::Decl *decl) {
   if (!decl)
     return false;
@@ -2483,32 +2468,32 @@ bool TypeSystemClang::GetCompleteDecl(clang::ASTContext *ast,
   }
 }
 
-void TypeSystemClang::SetMetadataAsUserID(const clang::Decl *decl,
+void TypeSystemMiniLLVM::SetMetadataAsUserID(const clang::Decl *decl,
                                           user_id_t user_id) {
   ClangASTMetadata meta_data;
   meta_data.SetUserID(user_id);
   SetMetadata(decl, meta_data);
 }
 
-void TypeSystemClang::SetMetadataAsUserID(const clang::Type *type,
+void TypeSystemMiniLLVM::SetMetadataAsUserID(const clang::Type *type,
                                           user_id_t user_id) {
   ClangASTMetadata meta_data;
   meta_data.SetUserID(user_id);
   SetMetadata(type, meta_data);
 }
 
-void TypeSystemClang::SetMetadata(const clang::Decl *object,
+void TypeSystemMiniLLVM::SetMetadata(const clang::Decl *object,
                                   ClangASTMetadata metadata) {
   m_decl_metadata[object] = metadata;
 }
 
-void TypeSystemClang::SetMetadata(const clang::Type *object,
+void TypeSystemMiniLLVM::SetMetadata(const clang::Type *object,
                                   ClangASTMetadata metadata) {
   m_type_metadata[object] = metadata;
 }
 
 std::optional<ClangASTMetadata>
-TypeSystemClang::GetMetadata(const clang::Decl *object) {
+TypeSystemMiniLLVM::GetMetadata(const clang::Decl *object) {
   auto It = m_decl_metadata.find(object);
   if (It != m_decl_metadata.end())
     return It->second;
@@ -2517,7 +2502,7 @@ TypeSystemClang::GetMetadata(const clang::Decl *object) {
 }
 
 std::optional<ClangASTMetadata>
-TypeSystemClang::GetMetadata(const clang::Type *object) {
+TypeSystemMiniLLVM::GetMetadata(const clang::Type *object) {
   auto It = m_type_metadata.find(object);
   if (It != m_type_metadata.end())
     return It->second;
@@ -2525,7 +2510,7 @@ TypeSystemClang::GetMetadata(const clang::Type *object) {
   return std::nullopt;
 }
 
-void TypeSystemClang::SetCXXRecordDeclAccess(const clang::CXXRecordDecl *object,
+void TypeSystemMiniLLVM::SetCXXRecordDeclAccess(const clang::CXXRecordDecl *object,
                                              clang::AccessSpecifier access) {
   if (access == clang::AccessSpecifier::AS_none)
     m_cxx_record_decl_access.erase(object);
@@ -2534,7 +2519,7 @@ void TypeSystemClang::SetCXXRecordDeclAccess(const clang::CXXRecordDecl *object,
 }
 
 clang::AccessSpecifier
-TypeSystemClang::GetCXXRecordDeclAccess(const clang::CXXRecordDecl *object) {
+TypeSystemMiniLLVM::GetCXXRecordDeclAccess(const clang::CXXRecordDecl *object) {
   auto It = m_cxx_record_decl_access.find(object);
   if (It != m_cxx_record_decl_access.end())
     return It->second;
@@ -2542,12 +2527,12 @@ TypeSystemClang::GetCXXRecordDeclAccess(const clang::CXXRecordDecl *object) {
 }
 
 clang::DeclContext *
-TypeSystemClang::GetDeclContextForType(const CompilerType &type) {
+TypeSystemMiniLLVM::GetDeclContextForType(const CompilerType &type) {
   return GetDeclContextForType(ClangUtil::GetQualType(type));
 }
 
 CompilerDeclContext
-TypeSystemClang::GetCompilerDeclContextForType(const CompilerType &type) {
+TypeSystemMiniLLVM::GetCompilerDeclContextForType(const CompilerType &type) {
   if (auto *decl_context = GetDeclContextForType(type))
     return CreateDeclContext(decl_context);
   return CompilerDeclContext();
@@ -2587,7 +2572,7 @@ RemoveWrappingTypes(QualType type, ArrayRef<clang::Type::TypeClass> mask = {}) {
 }
 
 clang::DeclContext *
-TypeSystemClang::GetDeclContextForType(clang::QualType type) {
+TypeSystemMiniLLVM::GetDeclContextForType(clang::QualType type) {
   if (type.isNull())
     return nullptr;
 
@@ -2808,12 +2793,12 @@ ConvertAccessTypeToObjCIvarAccessControl(AccessType access) {
 // Tests
 
 #ifndef NDEBUG
-bool TypeSystemClang::Verify(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::Verify(lldb::opaque_compiler_type_t type) {
   return !type || llvm::isa<clang::Type>(GetQualType(type).getTypePtr());
 }
 #endif
 
-bool TypeSystemClang::IsAggregateType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsAggregateType(lldb::opaque_compiler_type_t type) {
   clang::QualType qual_type(RemoveWrappingTypes(GetCanonicalQualType(type)));
 
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
@@ -2834,7 +2819,7 @@ bool TypeSystemClang::IsAggregateType(lldb::opaque_compiler_type_t type) {
   return false;
 }
 
-bool TypeSystemClang::IsAnonymousType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsAnonymousType(lldb::opaque_compiler_type_t type) {
   clang::QualType qual_type(RemoveWrappingTypes(GetCanonicalQualType(type)));
 
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
@@ -2856,7 +2841,7 @@ bool TypeSystemClang::IsAnonymousType(lldb::opaque_compiler_type_t type) {
   return false;
 }
 
-bool TypeSystemClang::IsArrayType(lldb::opaque_compiler_type_t type,
+bool TypeSystemMiniLLVM::IsArrayType(lldb::opaque_compiler_type_t type,
                                   CompilerType *element_type_ptr,
                                   uint64_t *size, bool *is_incomplete) {
   clang::QualType qual_type(RemoveWrappingTypes(GetCanonicalQualType(type)));
@@ -2926,7 +2911,7 @@ bool TypeSystemClang::IsArrayType(lldb::opaque_compiler_type_t type,
   return false;
 }
 
-bool TypeSystemClang::IsVectorType(lldb::opaque_compiler_type_t type,
+bool TypeSystemMiniLLVM::IsVectorType(lldb::opaque_compiler_type_t type,
                                    CompilerType *element_type, uint64_t *size) {
   clang::QualType qual_type(GetCanonicalQualType(type));
 
@@ -2962,7 +2947,7 @@ bool TypeSystemClang::IsVectorType(lldb::opaque_compiler_type_t type,
   return false;
 }
 
-bool TypeSystemClang::IsRuntimeGeneratedType(
+bool TypeSystemMiniLLVM::IsRuntimeGeneratedType(
     lldb::opaque_compiler_type_t type) {
   clang::DeclContext *decl_ctx = GetDeclContextForType(GetQualType(type));
   if (!decl_ctx)
@@ -2981,11 +2966,11 @@ bool TypeSystemClang::IsRuntimeGeneratedType(
   return (ast_metadata->GetISAPtr() != 0);
 }
 
-bool TypeSystemClang::IsCharType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsCharType(lldb::opaque_compiler_type_t type) {
   return GetQualType(type).getUnqualifiedType()->isCharType();
 }
 
-bool TypeSystemClang::IsCompleteType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsCompleteType(lldb::opaque_compiler_type_t type) {
   // If the type hasn't been lazily completed yet, complete it now so that we
   // can give the caller an accurate answer whether the type actually has a
   // definition. Without completing the type now we would just tell the user
@@ -2996,11 +2981,11 @@ bool TypeSystemClang::IsCompleteType(lldb::opaque_compiler_type_t type) {
                              allow_completion);
 }
 
-bool TypeSystemClang::IsConst(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsConst(lldb::opaque_compiler_type_t type) {
   return GetQualType(type).isConstQualified();
 }
 
-bool TypeSystemClang::IsCStringType(lldb::opaque_compiler_type_t type,
+bool TypeSystemMiniLLVM::IsCStringType(lldb::opaque_compiler_type_t type,
                                     uint32_t &length) {
   CompilerType pointee_or_element_clang_type;
   length = 0;
@@ -3025,7 +3010,7 @@ bool TypeSystemClang::IsCStringType(lldb::opaque_compiler_type_t type,
   return false;
 }
 
-unsigned TypeSystemClang::GetPtrAuthKey(lldb::opaque_compiler_type_t type) {
+unsigned TypeSystemMiniLLVM::GetPtrAuthKey(lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType qual_type(GetCanonicalQualType(type));
     if (auto pointer_auth = qual_type.getPointerAuth())
@@ -3035,7 +3020,7 @@ unsigned TypeSystemClang::GetPtrAuthKey(lldb::opaque_compiler_type_t type) {
 }
 
 unsigned
-TypeSystemClang::GetPtrAuthDiscriminator(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetPtrAuthDiscriminator(lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType qual_type(GetCanonicalQualType(type));
     if (auto pointer_auth = qual_type.getPointerAuth())
@@ -3044,7 +3029,7 @@ TypeSystemClang::GetPtrAuthDiscriminator(lldb::opaque_compiler_type_t type) {
   return 0;
 }
 
-bool TypeSystemClang::GetPtrAuthAddressDiversity(
+bool TypeSystemMiniLLVM::GetPtrAuthAddressDiversity(
     lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType qual_type(GetCanonicalQualType(type));
@@ -3054,7 +3039,7 @@ bool TypeSystemClang::GetPtrAuthAddressDiversity(
   return false;
 }
 
-bool TypeSystemClang::IsFunctionType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsFunctionType(lldb::opaque_compiler_type_t type) {
   auto isFunctionType = [&](clang::QualType qual_type) {
     return qual_type->isFunctionType();
   };
@@ -3064,7 +3049,7 @@ bool TypeSystemClang::IsFunctionType(lldb::opaque_compiler_type_t type) {
 
 // Used to detect "Homogeneous Floating-point Aggregates"
 uint32_t
-TypeSystemClang::IsHomogeneousAggregate(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::IsHomogeneousAggregate(lldb::opaque_compiler_type_t type,
                                         CompilerType *base_type_ptr) {
   if (!type)
     return 0;
@@ -3146,7 +3131,7 @@ TypeSystemClang::IsHomogeneousAggregate(lldb::opaque_compiler_type_t type,
   return 0;
 }
 
-size_t TypeSystemClang::GetNumberOfFunctionArguments(
+size_t TypeSystemMiniLLVM::GetNumberOfFunctionArguments(
     lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType qual_type(GetCanonicalQualType(type));
@@ -3159,7 +3144,7 @@ size_t TypeSystemClang::GetNumberOfFunctionArguments(
 }
 
 CompilerType
-TypeSystemClang::GetFunctionArgumentAtIndex(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetFunctionArgumentAtIndex(lldb::opaque_compiler_type_t type,
                                             const size_t index) {
   if (type) {
     clang::QualType qual_type(GetQualType(type));
@@ -3173,7 +3158,7 @@ TypeSystemClang::GetFunctionArgumentAtIndex(lldb::opaque_compiler_type_t type,
   return CompilerType();
 }
 
-bool TypeSystemClang::IsTypeImpl(
+bool TypeSystemMiniLLVM::IsTypeImpl(
     lldb::opaque_compiler_type_t type,
     llvm::function_ref<bool(clang::QualType)> predicate) const {
   if (type) {
@@ -3199,7 +3184,7 @@ bool TypeSystemClang::IsTypeImpl(
   return false;
 }
 
-bool TypeSystemClang::IsMemberFunctionPointerType(
+bool TypeSystemMiniLLVM::IsMemberFunctionPointerType(
     lldb::opaque_compiler_type_t type) {
   auto isMemberFunctionPointerType = [](clang::QualType qual_type) {
     return qual_type->isMemberFunctionPointerType();
@@ -3208,7 +3193,7 @@ bool TypeSystemClang::IsMemberFunctionPointerType(
   return IsTypeImpl(type, isMemberFunctionPointerType);
 }
 
-bool TypeSystemClang::IsFunctionPointerType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsFunctionPointerType(lldb::opaque_compiler_type_t type) {
   auto isFunctionPointerType = [](clang::QualType qual_type) {
     return qual_type->isFunctionPointerType();
   };
@@ -3216,7 +3201,7 @@ bool TypeSystemClang::IsFunctionPointerType(lldb::opaque_compiler_type_t type) {
   return IsTypeImpl(type, isFunctionPointerType);
 }
 
-bool TypeSystemClang::IsBlockPointerType(
+bool TypeSystemMiniLLVM::IsBlockPointerType(
     lldb::opaque_compiler_type_t type,
     CompilerType *function_pointer_type_ptr) {
   auto isBlockPointerType = [&](clang::QualType qual_type) {
@@ -3238,7 +3223,7 @@ bool TypeSystemClang::IsBlockPointerType(
   return IsTypeImpl(type, isBlockPointerType);
 }
 
-bool TypeSystemClang::IsIntegerType(lldb::opaque_compiler_type_t type,
+bool TypeSystemMiniLLVM::IsIntegerType(lldb::opaque_compiler_type_t type,
                                     bool &is_signed) {
   if (!type)
     return false;
@@ -3257,7 +3242,7 @@ bool TypeSystemClang::IsIntegerType(lldb::opaque_compiler_type_t type,
   return false;
 }
 
-bool TypeSystemClang::IsEnumerationType(lldb::opaque_compiler_type_t type,
+bool TypeSystemMiniLLVM::IsEnumerationType(lldb::opaque_compiler_type_t type,
                                         bool &is_signed) {
   if (type) {
     const clang::EnumType *enum_type = llvm::dyn_cast<clang::EnumType>(
@@ -3273,7 +3258,7 @@ bool TypeSystemClang::IsEnumerationType(lldb::opaque_compiler_type_t type,
   return false;
 }
 
-bool TypeSystemClang::IsScopedEnumerationType(
+bool TypeSystemMiniLLVM::IsScopedEnumerationType(
     lldb::opaque_compiler_type_t type) {
   if (type) {
     const clang::EnumType *enum_type = llvm::dyn_cast<clang::EnumType>(
@@ -3287,7 +3272,7 @@ bool TypeSystemClang::IsScopedEnumerationType(
   return false;
 }
 
-bool TypeSystemClang::IsPointerType(lldb::opaque_compiler_type_t type,
+bool TypeSystemMiniLLVM::IsPointerType(lldb::opaque_compiler_type_t type,
                                     CompilerType *pointee_type) {
   if (type) {
     clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
@@ -3340,7 +3325,7 @@ bool TypeSystemClang::IsPointerType(lldb::opaque_compiler_type_t type,
   return false;
 }
 
-bool TypeSystemClang::IsPointerOrReferenceType(
+bool TypeSystemMiniLLVM::IsPointerOrReferenceType(
     lldb::opaque_compiler_type_t type, CompilerType *pointee_type) {
   if (type) {
     clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
@@ -3407,7 +3392,7 @@ bool TypeSystemClang::IsPointerOrReferenceType(
   return false;
 }
 
-bool TypeSystemClang::IsReferenceType(lldb::opaque_compiler_type_t type,
+bool TypeSystemMiniLLVM::IsReferenceType(lldb::opaque_compiler_type_t type,
                                       CompilerType *pointee_type,
                                       bool *is_rvalue) {
   if (type) {
@@ -3443,7 +3428,7 @@ bool TypeSystemClang::IsReferenceType(lldb::opaque_compiler_type_t type,
   return false;
 }
 
-bool TypeSystemClang::IsFloatingPointType(lldb::opaque_compiler_type_t type,
+bool TypeSystemMiniLLVM::IsFloatingPointType(lldb::opaque_compiler_type_t type,
                                           uint32_t &count, bool &is_complex) {
   if (type) {
     clang::QualType qual_type(GetCanonicalQualType(type));
@@ -3481,7 +3466,7 @@ bool TypeSystemClang::IsFloatingPointType(lldb::opaque_compiler_type_t type,
   return false;
 }
 
-bool TypeSystemClang::IsDefined(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsDefined(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;
 
@@ -3507,7 +3492,7 @@ bool TypeSystemClang::IsDefined(lldb::opaque_compiler_type_t type) {
   return true;
 }
 
-bool TypeSystemClang::IsObjCClassType(const CompilerType &type) {
+bool TypeSystemMiniLLVM::IsObjCClassType(const CompilerType &type) {
   if (ClangUtil::IsClangType(type)) {
     clang::QualType qual_type(ClangUtil::GetCanonicalQualType(type));
 
@@ -3520,13 +3505,13 @@ bool TypeSystemClang::IsObjCClassType(const CompilerType &type) {
   return false;
 }
 
-bool TypeSystemClang::IsObjCObjectOrInterfaceType(const CompilerType &type) {
+bool TypeSystemMiniLLVM::IsObjCObjectOrInterfaceType(const CompilerType &type) {
   if (ClangUtil::IsClangType(type))
     return ClangUtil::GetCanonicalQualType(type)->isObjCObjectOrInterfaceType();
   return false;
 }
 
-bool TypeSystemClang::IsClassType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsClassType(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;
   clang::QualType qual_type(GetCanonicalQualType(type));
@@ -3534,7 +3519,7 @@ bool TypeSystemClang::IsClassType(lldb::opaque_compiler_type_t type) {
   return (type_class == clang::Type::Record);
 }
 
-bool TypeSystemClang::IsEnumType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsEnumType(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;
   clang::QualType qual_type(GetCanonicalQualType(type));
@@ -3542,7 +3527,7 @@ bool TypeSystemClang::IsEnumType(lldb::opaque_compiler_type_t type) {
   return (type_class == clang::Type::Enum);
 }
 
-bool TypeSystemClang::IsPolymorphicClass(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsPolymorphicClass(lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType qual_type(GetCanonicalQualType(type));
     const clang::Type::TypeClass type_class = qual_type->getTypeClass();
@@ -3575,7 +3560,7 @@ bool TypeSystemClang::IsPolymorphicClass(lldb::opaque_compiler_type_t type) {
   return false;
 }
 
-bool TypeSystemClang::IsPossibleDynamicType(lldb::opaque_compiler_type_t type,
+bool TypeSystemMiniLLVM::IsPossibleDynamicType(lldb::opaque_compiler_type_t type,
                                             CompilerType *dynamic_pointee_type,
                                             bool check_cplusplus,
                                             bool check_objc) {
@@ -3705,40 +3690,40 @@ bool TypeSystemClang::IsPossibleDynamicType(lldb::opaque_compiler_type_t type,
   return false;
 }
 
-bool TypeSystemClang::IsScalarType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsScalarType(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;
 
   return (GetTypeInfo(type, nullptr) & eTypeIsScalar) != 0;
 }
 
-bool TypeSystemClang::IsTypedefType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsTypedefType(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;
   return RemoveWrappingTypes(GetQualType(type), {clang::Type::Typedef})
              ->getTypeClass() == clang::Type::Typedef;
 }
 
-bool TypeSystemClang::IsVoidType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsVoidType(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;
   return GetCanonicalQualType(type)->isVoidType();
 }
 
-bool TypeSystemClang::CanPassInRegisters(const CompilerType &type) {
+bool TypeSystemMiniLLVM::CanPassInRegisters(const CompilerType &type) {
   if (auto *record_decl =
-      TypeSystemClang::GetAsRecordDecl(type)) {
+      TypeSystemMiniLLVM::GetAsRecordDecl(type)) {
     return record_decl->canPassInRegisters();
   }
   return false;
 }
 
-bool TypeSystemClang::SupportsLanguage(lldb::LanguageType language) {
-  return TypeSystemClangSupportsLanguage(language);
+bool TypeSystemMiniLLVM::SupportsLanguage(lldb::LanguageType language) {
+  return TypeSystemMiniLLVMSupportsLanguage(language);
 }
 
 std::optional<std::string>
-TypeSystemClang::GetCXXClassName(const CompilerType &type) {
+TypeSystemMiniLLVM::GetCXXClassName(const CompilerType &type) {
   if (!type)
     return std::nullopt;
 
@@ -3753,7 +3738,7 @@ TypeSystemClang::GetCXXClassName(const CompilerType &type) {
   return std::string(cxx_record_decl->getIdentifier()->getNameStart());
 }
 
-bool TypeSystemClang::IsCXXClassType(const CompilerType &type) {
+bool TypeSystemMiniLLVM::IsCXXClassType(const CompilerType &type) {
   if (!type)
     return false;
 
@@ -3761,7 +3746,7 @@ bool TypeSystemClang::IsCXXClassType(const CompilerType &type) {
   return !qual_type.isNull() && qual_type->getAsCXXRecordDecl() != nullptr;
 }
 
-bool TypeSystemClang::IsBeingDefined(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsBeingDefined(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;
   clang::QualType qual_type(GetCanonicalQualType(type));
@@ -3771,7 +3756,7 @@ bool TypeSystemClang::IsBeingDefined(lldb::opaque_compiler_type_t type) {
   return false;
 }
 
-bool TypeSystemClang::IsObjCObjectPointerType(const CompilerType &type,
+bool TypeSystemMiniLLVM::IsObjCObjectPointerType(const CompilerType &type,
                                               CompilerType *class_type_ptr) {
   if (!ClangUtil::IsClangType(type))
     return false;
@@ -3801,7 +3786,7 @@ bool TypeSystemClang::IsObjCObjectPointerType(const CompilerType &type,
 
 // Type Completion
 
-bool TypeSystemClang::GetCompleteType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::GetCompleteType(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;
   const bool allow_completion = true;
@@ -3809,7 +3794,7 @@ bool TypeSystemClang::GetCompleteType(lldb::opaque_compiler_type_t type) {
                              allow_completion);
 }
 
-ConstString TypeSystemClang::GetTypeName(lldb::opaque_compiler_type_t type,
+ConstString TypeSystemMiniLLVM::GetTypeName(lldb::opaque_compiler_type_t type,
                                          bool base_only) {
   if (!type)
     return ConstString();
@@ -3842,7 +3827,7 @@ ConstString TypeSystemClang::GetTypeName(lldb::opaque_compiler_type_t type,
 }
 
 ConstString
-TypeSystemClang::GetDisplayTypeName(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetDisplayTypeName(lldb::opaque_compiler_type_t type) {
   if (!type)
     return ConstString();
 
@@ -3856,7 +3841,7 @@ TypeSystemClang::GetDisplayTypeName(lldb::opaque_compiler_type_t type) {
 }
 
 uint32_t
-TypeSystemClang::GetTypeInfo(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetTypeInfo(lldb::opaque_compiler_type_t type,
                              CompilerType *pointee_or_element_clang_type) {
   if (!type)
     return 0;
@@ -4059,7 +4044,7 @@ TypeSystemClang::GetTypeInfo(lldb::opaque_compiler_type_t type,
 }
 
 lldb::LanguageType
-TypeSystemClang::GetMinimumLanguage(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetMinimumLanguage(lldb::opaque_compiler_type_t type) {
   if (!type)
     return lldb::eLanguageTypeC;
 
@@ -4143,7 +4128,7 @@ TypeSystemClang::GetMinimumLanguage(lldb::opaque_compiler_type_t type) {
 }
 
 lldb::TypeClass
-TypeSystemClang::GetTypeClass(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetTypeClass(lldb::opaque_compiler_type_t type) {
   if (!type)
     return lldb::eTypeClassInvalid;
 
@@ -4283,7 +4268,7 @@ TypeSystemClang::GetTypeClass(lldb::opaque_compiler_type_t type) {
   return lldb::eTypeClassOther;
 }
 
-unsigned TypeSystemClang::GetTypeQualifiers(lldb::opaque_compiler_type_t type) {
+unsigned TypeSystemMiniLLVM::GetTypeQualifiers(lldb::opaque_compiler_type_t type) {
   if (type)
     return GetQualType(type).getQualifiers().getCVRQualifiers();
   return 0;
@@ -4292,7 +4277,7 @@ unsigned TypeSystemClang::GetTypeQualifiers(lldb::opaque_compiler_type_t type) {
 // Creating related types
 
 CompilerType
-TypeSystemClang::GetArrayElementType(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetArrayElementType(lldb::opaque_compiler_type_t type,
                                      ExecutionContextScope *exe_scope) {
   if (type) {
     clang::QualType qual_type(GetQualType(type));
@@ -4308,7 +4293,7 @@ TypeSystemClang::GetArrayElementType(lldb::opaque_compiler_type_t type,
   return CompilerType();
 }
 
-CompilerType TypeSystemClang::GetArrayType(lldb::opaque_compiler_type_t type,
+CompilerType TypeSystemMiniLLVM::GetArrayType(lldb::opaque_compiler_type_t type,
                                            uint64_t size) {
   if (type) {
     clang::QualType qual_type(GetCanonicalQualType(type));
@@ -4326,7 +4311,7 @@ CompilerType TypeSystemClang::GetArrayType(lldb::opaque_compiler_type_t type,
 }
 
 CompilerType
-TypeSystemClang::GetCanonicalType(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetCanonicalType(lldb::opaque_compiler_type_t type) {
   if (type)
     return GetType(GetCanonicalQualType(type));
   return CompilerType();
@@ -4352,7 +4337,7 @@ static clang::QualType GetFullyUnqualifiedType_Impl(clang::ASTContext *ast,
 }
 
 CompilerType
-TypeSystemClang::GetFullyUnqualifiedType(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetFullyUnqualifiedType(lldb::opaque_compiler_type_t type) {
   if (type)
     return GetType(
         GetFullyUnqualifiedType_Impl(&getASTContext(), GetQualType(type)));
@@ -4360,13 +4345,13 @@ TypeSystemClang::GetFullyUnqualifiedType(lldb::opaque_compiler_type_t type) {
 }
 
 CompilerType
-TypeSystemClang::GetEnumerationIntegerType(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetEnumerationIntegerType(lldb::opaque_compiler_type_t type) {
   if (type)
     return GetEnumerationIntegerType(GetType(GetCanonicalQualType(type)));
   return CompilerType();
 }
 
-int TypeSystemClang::GetFunctionArgumentCount(
+int TypeSystemMiniLLVM::GetFunctionArgumentCount(
     lldb::opaque_compiler_type_t type) {
   if (type) {
     const clang::FunctionProtoType *func =
@@ -4377,7 +4362,7 @@ int TypeSystemClang::GetFunctionArgumentCount(
   return -1;
 }
 
-CompilerType TypeSystemClang::GetFunctionArgumentTypeAtIndex(
+CompilerType TypeSystemMiniLLVM::GetFunctionArgumentTypeAtIndex(
     lldb::opaque_compiler_type_t type, size_t idx) {
   if (type) {
     const clang::FunctionProtoType *func =
@@ -4392,7 +4377,7 @@ CompilerType TypeSystemClang::GetFunctionArgumentTypeAtIndex(
 }
 
 CompilerType
-TypeSystemClang::GetFunctionReturnType(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetFunctionReturnType(lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType qual_type(GetQualType(type));
     const clang::FunctionProtoType *func =
@@ -4404,7 +4389,7 @@ TypeSystemClang::GetFunctionReturnType(lldb::opaque_compiler_type_t type) {
 }
 
 size_t
-TypeSystemClang::GetNumMemberFunctions(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetNumMemberFunctions(lldb::opaque_compiler_type_t type) {
   size_t num_functions = 0;
   if (type) {
     clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
@@ -4464,7 +4449,7 @@ TypeSystemClang::GetNumMemberFunctions(lldb::opaque_compiler_type_t type) {
 }
 
 TypeMemberFunctionImpl
-TypeSystemClang::GetMemberFunctionAtIndex(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetMemberFunctionAtIndex(lldb::opaque_compiler_type_t type,
                                           size_t idx) {
   std::string name;
   MemberFunctionKind kind(MemberFunctionKind::eMemberFunctionKindUnknown);
@@ -4581,14 +4566,14 @@ TypeSystemClang::GetMemberFunctionAtIndex(lldb::opaque_compiler_type_t type,
 }
 
 CompilerType
-TypeSystemClang::GetNonReferenceType(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetNonReferenceType(lldb::opaque_compiler_type_t type) {
   if (type)
     return GetType(GetQualType(type).getNonReferenceType());
   return CompilerType();
 }
 
 CompilerType
-TypeSystemClang::GetPointeeType(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetPointeeType(lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType qual_type(GetQualType(type));
     return GetType(qual_type.getTypePtr()->getPointeeType());
@@ -4597,7 +4582,7 @@ TypeSystemClang::GetPointeeType(lldb::opaque_compiler_type_t type) {
 }
 
 CompilerType
-TypeSystemClang::GetPointerType(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetPointerType(lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType qual_type(GetQualType(type));
 
@@ -4614,7 +4599,7 @@ TypeSystemClang::GetPointerType(lldb::opaque_compiler_type_t type) {
 }
 
 CompilerType
-TypeSystemClang::GetLValueReferenceType(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetLValueReferenceType(lldb::opaque_compiler_type_t type) {
   if (type)
     return GetType(getASTContext().getLValueReferenceType(GetQualType(type)));
   else
@@ -4622,21 +4607,21 @@ TypeSystemClang::GetLValueReferenceType(lldb::opaque_compiler_type_t type) {
 }
 
 CompilerType
-TypeSystemClang::GetRValueReferenceType(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetRValueReferenceType(lldb::opaque_compiler_type_t type) {
   if (type)
     return GetType(getASTContext().getRValueReferenceType(GetQualType(type)));
   else
     return CompilerType();
 }
 
-CompilerType TypeSystemClang::GetAtomicType(lldb::opaque_compiler_type_t type) {
+CompilerType TypeSystemMiniLLVM::GetAtomicType(lldb::opaque_compiler_type_t type) {
   if (!type)
     return CompilerType();
   return GetType(getASTContext().getAtomicType(GetQualType(type)));
 }
 
 CompilerType
-TypeSystemClang::AddConstModifier(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::AddConstModifier(lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType result(GetQualType(type));
     result.addConst();
@@ -4646,7 +4631,7 @@ TypeSystemClang::AddConstModifier(lldb::opaque_compiler_type_t type) {
 }
 
 CompilerType
-TypeSystemClang::AddPtrAuthModifier(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::AddPtrAuthModifier(lldb::opaque_compiler_type_t type,
                                     uint32_t payload) {
   if (type) {
     clang::ASTContext &clang_ast = getASTContext();
@@ -4659,7 +4644,7 @@ TypeSystemClang::AddPtrAuthModifier(lldb::opaque_compiler_type_t type,
 }
 
 CompilerType
-TypeSystemClang::AddVolatileModifier(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::AddVolatileModifier(lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType result(GetQualType(type));
     result.addVolatile();
@@ -4669,7 +4654,7 @@ TypeSystemClang::AddVolatileModifier(lldb::opaque_compiler_type_t type) {
 }
 
 CompilerType
-TypeSystemClang::AddRestrictModifier(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::AddRestrictModifier(lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType result(GetQualType(type));
     result.addRestrict();
@@ -4678,7 +4663,7 @@ TypeSystemClang::AddRestrictModifier(lldb::opaque_compiler_type_t type) {
   return CompilerType();
 }
 
-CompilerType TypeSystemClang::CreateTypedef(
+CompilerType TypeSystemMiniLLVM::CreateTypedef(
     lldb::opaque_compiler_type_t type, const char *typedef_name,
     const CompilerDeclContext &compiler_decl_ctx, uint32_t payload) {
   if (type && typedef_name && typedef_name[0]) {
@@ -4686,7 +4671,7 @@ CompilerType TypeSystemClang::CreateTypedef(
     clang::QualType qual_type(GetQualType(type));
 
     clang::DeclContext *decl_ctx =
-        TypeSystemClang::DeclContextGetAsDeclContext(compiler_decl_ctx);
+        TypeSystemMiniLLVM::DeclContextGetAsDeclContext(compiler_decl_ctx);
     if (!decl_ctx)
       decl_ctx = getASTContext().getTranslationUnitDecl();
 
@@ -4721,7 +4706,7 @@ CompilerType TypeSystemClang::CreateTypedef(
 }
 
 CompilerType
-TypeSystemClang::GetTypedefedType(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetTypedefedType(lldb::opaque_compiler_type_t type) {
   if (type) {
     const clang::TypedefType *typedef_type = llvm::dyn_cast<clang::TypedefType>(
         RemoveWrappingTypes(GetQualType(type), {clang::Type::Typedef}));
@@ -4733,11 +4718,11 @@ TypeSystemClang::GetTypedefedType(lldb::opaque_compiler_type_t type) {
 
 // Create related types using the current type's AST
 
-CompilerType TypeSystemClang::GetBasicTypeFromAST(lldb::BasicType basic_type) {
-  return TypeSystemClang::GetBasicType(basic_type);
+CompilerType TypeSystemMiniLLVM::GetBasicTypeFromAST(lldb::BasicType basic_type) {
+  return TypeSystemMiniLLVM::GetBasicType(basic_type);
 }
 
-CompilerType TypeSystemClang::CreateGenericFunctionPrototype() {
+CompilerType TypeSystemMiniLLVM::CreateGenericFunctionPrototype() {
   clang::ASTContext &ast = getASTContext();
   const FunctionType::ExtInfo generic_ext_info(
     /*noReturn=*/false,
@@ -4754,7 +4739,7 @@ CompilerType TypeSystemClang::CreateGenericFunctionPrototype() {
 // Exploring the type
 
 const llvm::fltSemantics &
-TypeSystemClang::GetFloatTypeSemantics(size_t byte_size) {
+TypeSystemMiniLLVM::GetFloatTypeSemantics(size_t byte_size) {
   clang::ASTContext &ast = getASTContext();
   const size_t bit_size = byte_size * 8;
   if (bit_size == ast.getTypeSize(ast.FloatTy))
@@ -4771,7 +4756,7 @@ TypeSystemClang::GetFloatTypeSemantics(size_t byte_size) {
 }
 
 std::optional<uint64_t>
-TypeSystemClang::GetObjCBitSize(QualType qual_type,
+TypeSystemMiniLLVM::GetObjCBitSize(QualType qual_type,
                                 ExecutionContextScope *exe_scope) {
   assert(qual_type->isObjCObjectOrInterfaceType());
   ExecutionContext exe_ctx(exe_scope);
@@ -4804,7 +4789,7 @@ TypeSystemClang::GetObjCBitSize(QualType qual_type,
 }
 
 std::optional<uint64_t>
-TypeSystemClang::GetBitSize(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetBitSize(lldb::opaque_compiler_type_t type,
                             ExecutionContextScope *exe_scope) {
   if (!GetCompleteType(type))
     return std::nullopt;
@@ -4837,14 +4822,14 @@ TypeSystemClang::GetBitSize(lldb::opaque_compiler_type_t type,
 }
 
 std::optional<size_t>
-TypeSystemClang::GetTypeBitAlign(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetTypeBitAlign(lldb::opaque_compiler_type_t type,
                                  ExecutionContextScope *exe_scope) {
   if (GetCompleteType(type))
     return getASTContext().getTypeAlign(GetQualType(type));
   return {};
 }
 
-lldb::Encoding TypeSystemClang::GetEncoding(lldb::opaque_compiler_type_t type,
+lldb::Encoding TypeSystemMiniLLVM::GetEncoding(lldb::opaque_compiler_type_t type,
                                             uint64_t &count) {
   if (!type)
     return lldb::eEncodingInvalid;
@@ -5144,7 +5129,7 @@ lldb::Encoding TypeSystemClang::GetEncoding(lldb::opaque_compiler_type_t type,
   return lldb::eEncodingInvalid;
 }
 
-lldb::Format TypeSystemClang::GetFormat(lldb::opaque_compiler_type_t type) {
+lldb::Format TypeSystemMiniLLVM::GetFormat(lldb::opaque_compiler_type_t type) {
   if (!type)
     return lldb::eFormatDefault;
 
@@ -5323,7 +5308,7 @@ static bool ObjCDeclHasIVars(clang::ObjCInterfaceDecl *class_interface_decl,
 }
 
 static std::optional<SymbolFile::ArrayInfo>
-GetDynamicArrayInfo(TypeSystemClang &ast, SymbolFile *sym_file,
+GetDynamicArrayInfo(TypeSystemMiniLLVM &ast, SymbolFile *sym_file,
                     clang::QualType qual_type,
                     const ExecutionContext *exe_ctx) {
   if (qual_type->isIncompleteArrayType())
@@ -5335,7 +5320,7 @@ GetDynamicArrayInfo(TypeSystemClang &ast, SymbolFile *sym_file,
 }
 
 llvm::Expected<uint32_t>
-TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetNumChildren(lldb::opaque_compiler_type_t type,
                                 bool omit_empty_base_classes,
                                 const ExecutionContext *exe_ctx) {
   if (!type)
@@ -5384,7 +5369,7 @@ TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
                         ->getDecl());
 
             // Skip empty base classes
-            if (!TypeSystemClang::RecordHasFields(base_class_decl))
+            if (!TypeSystemMiniLLVM::RecordHasFields(base_class_decl))
               continue;
 
             num_children++;
@@ -5495,12 +5480,12 @@ TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
   return num_children;
 }
 
-CompilerType TypeSystemClang::GetBuiltinTypeByName(ConstString name) {
+CompilerType TypeSystemMiniLLVM::GetBuiltinTypeByName(ConstString name) {
   return GetBasicType(GetBasicTypeEnumeration(name));
 }
 
 lldb::BasicType
-TypeSystemClang::GetBasicTypeEnumeration(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetBasicTypeEnumeration(lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType qual_type(GetQualType(type));
     const clang::Type::TypeClass type_class = qual_type->getTypeClass();
@@ -5574,7 +5559,7 @@ TypeSystemClang::GetBasicTypeEnumeration(lldb::opaque_compiler_type_t type) {
   return eBasicTypeInvalid;
 }
 
-void TypeSystemClang::ForEachEnumerator(
+void TypeSystemMiniLLVM::ForEachEnumerator(
     lldb::opaque_compiler_type_t type,
     std::function<bool(const CompilerType &integer_type,
                        ConstString name,
@@ -5600,7 +5585,7 @@ void TypeSystemClang::ForEachEnumerator(
 
 #pragma mark Aggregate Types
 
-uint32_t TypeSystemClang::GetNumFields(lldb::opaque_compiler_type_t type) {
+uint32_t TypeSystemMiniLLVM::GetNumFields(lldb::opaque_compiler_type_t type) {
   if (!type)
     return 0;
 
@@ -5712,7 +5697,7 @@ GetObjCFieldAtIndex(clang::ASTContext *ast,
   return nullptr;
 }
 
-CompilerType TypeSystemClang::GetFieldAtIndex(lldb::opaque_compiler_type_t type,
+CompilerType TypeSystemMiniLLVM::GetFieldAtIndex(lldb::opaque_compiler_type_t type,
                                               size_t idx, std::string &name,
                                               uint64_t *bit_offset_ptr,
                                               uint32_t *bitfield_bit_size_ptr,
@@ -5817,7 +5802,7 @@ CompilerType TypeSystemClang::GetFieldAtIndex(lldb::opaque_compiler_type_t type,
 }
 
 uint32_t
-TypeSystemClang::GetNumDirectBaseClasses(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetNumDirectBaseClasses(lldb::opaque_compiler_type_t type) {
   uint32_t count = 0;
   clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
@@ -5869,7 +5854,7 @@ TypeSystemClang::GetNumDirectBaseClasses(lldb::opaque_compiler_type_t type) {
 }
 
 uint32_t
-TypeSystemClang::GetNumVirtualBaseClasses(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetNumVirtualBaseClasses(lldb::opaque_compiler_type_t type) {
   uint32_t count = 0;
   clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
@@ -5889,7 +5874,7 @@ TypeSystemClang::GetNumVirtualBaseClasses(lldb::opaque_compiler_type_t type) {
   return count;
 }
 
-CompilerType TypeSystemClang::GetDirectBaseClassAtIndex(
+CompilerType TypeSystemMiniLLVM::GetDirectBaseClassAtIndex(
     lldb::opaque_compiler_type_t type, size_t idx, uint32_t *bit_offset_ptr) {
   clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
@@ -5984,7 +5969,7 @@ CompilerType TypeSystemClang::GetDirectBaseClassAtIndex(
   return CompilerType();
 }
 
-CompilerType TypeSystemClang::GetVirtualBaseClassAtIndex(
+CompilerType TypeSystemMiniLLVM::GetVirtualBaseClassAtIndex(
     lldb::opaque_compiler_type_t type, size_t idx, uint32_t *bit_offset_ptr) {
   clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
@@ -6028,7 +6013,7 @@ CompilerType TypeSystemClang::GetVirtualBaseClassAtIndex(
 }
 
 CompilerDecl
-TypeSystemClang::GetStaticFieldWithName(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetStaticFieldWithName(lldb::opaque_compiler_type_t type,
                                         llvm::StringRef name) {
   clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
   switch (qual_type->getTypeClass()) {
@@ -6062,7 +6047,7 @@ TypeSystemClang::GetStaticFieldWithName(lldb::opaque_compiler_type_t type,
 // different result. For example, an "int *" has one child that is an integer,
 // but a function pointer doesn't have any children. Likewise if a Record type
 // claims it has no children, then there really is nothing to show.
-uint32_t TypeSystemClang::GetNumPointeeChildren(clang::QualType type) {
+uint32_t TypeSystemMiniLLVM::GetNumPointeeChildren(clang::QualType type) {
   if (type.isNull())
     return 0;
 
@@ -6196,7 +6181,7 @@ uint32_t TypeSystemClang::GetNumPointeeChildren(clang::QualType type) {
   return 0;
 }
 
-llvm::Expected<CompilerType> TypeSystemClang::GetChildCompilerTypeAtIndex(
+llvm::Expected<CompilerType> TypeSystemMiniLLVM::GetChildCompilerTypeAtIndex(
     lldb::opaque_compiler_type_t type, ExecutionContext *exe_ctx, size_t idx,
     bool transparent_pointers, bool omit_empty_base_classes,
     bool ignore_array_bounds, std::string &child_name,
@@ -6270,7 +6255,7 @@ llvm::Expected<CompilerType> TypeSystemClang::GetChildCompilerTypeAtIndex(
           if (omit_empty_base_classes) {
             base_class_decl = llvm::cast<clang::CXXRecordDecl>(
                 base_class->getType()->getAs<clang::RecordType>()->getDecl());
-            if (!TypeSystemClang::RecordHasFields(base_class_decl))
+            if (!TypeSystemMiniLLVM::RecordHasFields(base_class_decl))
               continue;
           }
 
@@ -6646,7 +6631,7 @@ llvm::Expected<CompilerType> TypeSystemClang::GetChildCompilerTypeAtIndex(
   return CompilerType();
 }
 
-uint32_t TypeSystemClang::GetIndexForRecordBase(
+uint32_t TypeSystemMiniLLVM::GetIndexForRecordBase(
     const clang::RecordDecl *record_decl,
     const clang::CXXBaseSpecifier *base_spec,
     bool omit_empty_base_classes) {
@@ -6674,10 +6659,10 @@ uint32_t TypeSystemClang::GetIndexForRecordBase(
   return UINT32_MAX;
 }
 
-uint32_t TypeSystemClang::GetIndexForRecordChild(
+uint32_t TypeSystemMiniLLVM::GetIndexForRecordChild(
     const clang::RecordDecl *record_decl, clang::NamedDecl *canonical_decl,
     bool omit_empty_base_classes) {
-  uint32_t child_idx = TypeSystemClang::GetNumBaseClasses(
+  uint32_t child_idx = TypeSystemMiniLLVM::GetNumBaseClasses(
       llvm::dyn_cast<clang::CXXRecordDecl>(record_decl),
       omit_empty_base_classes);
 
@@ -6724,7 +6709,7 @@ uint32_t TypeSystemClang::GetIndexForRecordChild(
 // class C (since class B doesn't have any members it doesn't count) The second
 // index 1 is the child index for "m_b" within class A
 
-size_t TypeSystemClang::GetIndexOfChildMemberWithName(
+size_t TypeSystemMiniLLVM::GetIndexOfChildMemberWithName(
     lldb::opaque_compiler_type_t type, llvm::StringRef name,
     bool omit_empty_base_classes, std::vector<uint32_t> &child_indexes) {
   if (type && !name.empty()) {
@@ -6760,7 +6745,7 @@ size_t TypeSystemClang::GetIndexOfChildMemberWithName(
           } else if (field_name == name) {
             // We have to add on the number of base classes to this index!
             child_indexes.push_back(
-                child_idx + TypeSystemClang::GetNumBaseClasses(
+                child_idx + TypeSystemMiniLLVM::GetNumBaseClasses(
                                 cxx_record_decl, omit_empty_base_classes));
             return child_indexes.size();
           }
@@ -6918,7 +6903,7 @@ size_t TypeSystemClang::GetIndexOfChildMemberWithName(
     //                clang::QualType pointee_type =
     //                mem_ptr_type->getPointeeType();
     //
-    //                if (TypeSystemClang::IsAggregateType
+    //                if (TypeSystemMiniLLVM::IsAggregateType
     //                (pointee_type.getAsOpaquePtr()))
     //                {
     //                    return GetIndexOfChildWithName (ast,
@@ -6962,7 +6947,7 @@ size_t TypeSystemClang::GetIndexOfChildMemberWithName(
 // matches can include base class names.
 
 uint32_t
-TypeSystemClang::GetIndexOfChildWithName(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetIndexOfChildWithName(lldb::opaque_compiler_type_t type,
                                          llvm::StringRef name,
                                          bool omit_empty_base_classes) {
   if (type && !name.empty()) {
@@ -6996,7 +6981,7 @@ TypeSystemClang::GetIndexOfChildWithName(lldb::opaque_compiler_type_t type,
                         ->castAs<clang::RecordType>()
                         ->getDecl());
             if (omit_empty_base_classes &&
-                !TypeSystemClang::RecordHasFields(base_class_decl))
+                !TypeSystemMiniLLVM::RecordHasFields(base_class_decl))
               continue;
 
             CompilerType base_class_clang_type = GetType(base_class->getType());
@@ -7097,7 +7082,7 @@ TypeSystemClang::GetIndexOfChildWithName(lldb::opaque_compiler_type_t type,
     //                clang::QualType pointee_type =
     //                mem_ptr_type->getPointeeType();
     //
-    //                if (TypeSystemClang::IsAggregateType
+    //                if (TypeSystemMiniLLVM::IsAggregateType
     //                (pointee_type.getAsOpaquePtr()))
     //                {
     //                    return GetIndexOfChildWithName (ast,
@@ -7155,7 +7140,7 @@ TypeSystemClang::GetIndexOfChildWithName(lldb::opaque_compiler_type_t type,
 }
 
 CompilerType
-TypeSystemClang::GetDirectNestedTypeWithName(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetDirectNestedTypeWithName(lldb::opaque_compiler_type_t type,
                                              llvm::StringRef name) {
   if (!type || name.empty())
     return CompilerType();
@@ -7186,7 +7171,7 @@ TypeSystemClang::GetDirectNestedTypeWithName(lldb::opaque_compiler_type_t type,
   return CompilerType();
 }
 
-bool TypeSystemClang::IsTemplateType(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsTemplateType(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;
   CompilerType ct(weak_from_this(), type);
@@ -7198,7 +7183,7 @@ bool TypeSystemClang::IsTemplateType(lldb::opaque_compiler_type_t type) {
 }
 
 size_t
-TypeSystemClang::GetNumTemplateArguments(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetNumTemplateArguments(lldb::opaque_compiler_type_t type,
                                          bool expand_pack) {
   if (!type)
     return 0;
@@ -7237,7 +7222,7 @@ TypeSystemClang::GetNumTemplateArguments(lldb::opaque_compiler_type_t type,
 }
 
 const clang::ClassTemplateSpecializationDecl *
-TypeSystemClang::GetAsTemplateSpecialization(
+TypeSystemMiniLLVM::GetAsTemplateSpecialization(
     lldb::opaque_compiler_type_t type) {
   if (!type)
     return nullptr;
@@ -7294,7 +7279,7 @@ GetNthTemplateArgument(const clang::ClassTemplateSpecializationDecl *decl,
 }
 
 lldb::TemplateArgumentKind
-TypeSystemClang::GetTemplateArgumentKind(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetTemplateArgumentKind(lldb::opaque_compiler_type_t type,
                                          size_t arg_idx, bool expand_pack) {
   const clang::ClassTemplateSpecializationDecl *template_decl =
       GetAsTemplateSpecialization(type);
@@ -7340,7 +7325,7 @@ TypeSystemClang::GetTemplateArgumentKind(lldb::opaque_compiler_type_t type,
 }
 
 CompilerType
-TypeSystemClang::GetTypeTemplateArgument(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetTypeTemplateArgument(lldb::opaque_compiler_type_t type,
                                          size_t idx, bool expand_pack) {
   const clang::ClassTemplateSpecializationDecl *template_decl =
       GetAsTemplateSpecialization(type);
@@ -7355,7 +7340,7 @@ TypeSystemClang::GetTypeTemplateArgument(lldb::opaque_compiler_type_t type,
 }
 
 std::optional<CompilerType::IntegralTemplateArgument>
-TypeSystemClang::GetIntegralTemplateArgument(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::GetIntegralTemplateArgument(lldb::opaque_compiler_type_t type,
                                              size_t idx, bool expand_pack) {
   const clang::ClassTemplateSpecializationDecl *template_decl =
       GetAsTemplateSpecialization(type);
@@ -7369,13 +7354,13 @@ TypeSystemClang::GetIntegralTemplateArgument(lldb::opaque_compiler_type_t type,
   return {{arg->getAsIntegral(), GetType(arg->getIntegralType())}};
 }
 
-CompilerType TypeSystemClang::GetTypeForFormatters(void *type) {
+CompilerType TypeSystemMiniLLVM::GetTypeForFormatters(void *type) {
   if (type)
     return ClangUtil::RemoveFastQualifiers(CompilerType(weak_from_this(), type));
   return CompilerType();
 }
 
-clang::EnumDecl *TypeSystemClang::GetAsEnumDecl(const CompilerType &type) {
+clang::EnumDecl *TypeSystemMiniLLVM::GetAsEnumDecl(const CompilerType &type) {
   const clang::EnumType *enutype =
       llvm::dyn_cast<clang::EnumType>(ClangUtil::GetCanonicalQualType(type));
   if (enutype)
@@ -7383,7 +7368,7 @@ clang::EnumDecl *TypeSystemClang::GetAsEnumDecl(const CompilerType &type) {
   return nullptr;
 }
 
-clang::RecordDecl *TypeSystemClang::GetAsRecordDecl(const CompilerType &type) {
+clang::RecordDecl *TypeSystemMiniLLVM::GetAsRecordDecl(const CompilerType &type) {
   const clang::RecordType *record_type =
       llvm::dyn_cast<clang::RecordType>(ClangUtil::GetCanonicalQualType(type));
   if (record_type)
@@ -7391,12 +7376,12 @@ clang::RecordDecl *TypeSystemClang::GetAsRecordDecl(const CompilerType &type) {
   return nullptr;
 }
 
-clang::TagDecl *TypeSystemClang::GetAsTagDecl(const CompilerType &type) {
+clang::TagDecl *TypeSystemMiniLLVM::GetAsTagDecl(const CompilerType &type) {
   return ClangUtil::GetAsTagDecl(type);
 }
 
 clang::TypedefNameDecl *
-TypeSystemClang::GetAsTypedefDecl(const CompilerType &type) {
+TypeSystemMiniLLVM::GetAsTypedefDecl(const CompilerType &type) {
   const clang::TypedefType *typedef_type =
       llvm::dyn_cast<clang::TypedefType>(ClangUtil::GetQualType(type));
   if (typedef_type)
@@ -7405,12 +7390,12 @@ TypeSystemClang::GetAsTypedefDecl(const CompilerType &type) {
 }
 
 clang::CXXRecordDecl *
-TypeSystemClang::GetAsCXXRecordDecl(lldb::opaque_compiler_type_t type) {
+TypeSystemMiniLLVM::GetAsCXXRecordDecl(lldb::opaque_compiler_type_t type) {
   return GetCanonicalQualType(type)->getAsCXXRecordDecl();
 }
 
 clang::ObjCInterfaceDecl *
-TypeSystemClang::GetAsObjCInterfaceDecl(const CompilerType &type) {
+TypeSystemMiniLLVM::GetAsObjCInterfaceDecl(const CompilerType &type) {
   const clang::ObjCObjectType *objc_class_type =
       llvm::dyn_cast<clang::ObjCObjectType>(
           ClangUtil::GetCanonicalQualType(type));
@@ -7419,14 +7404,14 @@ TypeSystemClang::GetAsObjCInterfaceDecl(const CompilerType &type) {
   return nullptr;
 }
 
-clang::FieldDecl *TypeSystemClang::AddFieldToRecordType(
+clang::FieldDecl *TypeSystemMiniLLVM::AddFieldToRecordType(
     const CompilerType &type, llvm::StringRef name,
     const CompilerType &field_clang_type, AccessType access,
     uint32_t bitfield_bit_size) {
   if (!type.IsValid() || !field_clang_type.IsValid())
     return nullptr;
   auto ts = type.GetTypeSystem();
-  auto ast = ts.dyn_cast_or_null<TypeSystemClang>();
+  auto ast = ts.dyn_cast_or_null<TypeSystemMiniLLVM>();
   if (!ast)
     return nullptr;
   clang::ASTContext &clang_ast = ast->getASTContext();
@@ -7478,7 +7463,7 @@ clang::FieldDecl *TypeSystemClang::AddFieldToRecordType(
 
     if (field) {
       clang::AccessSpecifier access_specifier =
-          TypeSystemClang::ConvertAccessTypeToAccessSpecifier(access);
+          TypeSystemMiniLLVM::ConvertAccessTypeToAccessSpecifier(access);
       field->setAccess(access_specifier);
 
       if (clang::CXXRecordDecl *cxx_record_decl =
@@ -7523,12 +7508,12 @@ clang::FieldDecl *TypeSystemClang::AddFieldToRecordType(
   return field;
 }
 
-void TypeSystemClang::BuildIndirectFields(const CompilerType &type) {
+void TypeSystemMiniLLVM::BuildIndirectFields(const CompilerType &type) {
   if (!type)
     return;
 
   auto ts = type.GetTypeSystem();
-  auto ast = ts.dyn_cast_or_null<TypeSystemClang>();
+  auto ast = ts.dyn_cast_or_null<TypeSystemMiniLLVM>();
   if (!ast)
     return;
 
@@ -7578,7 +7563,7 @@ void TypeSystemClang::BuildIndirectFields(const CompilerType &type) {
 
           indirect_field->setImplicit();
 
-          indirect_field->setAccess(TypeSystemClang::UnifyAccessSpecifiers(
+          indirect_field->setAccess(TypeSystemMiniLLVM::UnifyAccessSpecifiers(
               field_pos->getAccess(), nested_field_decl->getAccess()));
 
           indirect_fields.push_back(indirect_field);
@@ -7609,7 +7594,7 @@ void TypeSystemClang::BuildIndirectFields(const CompilerType &type) {
 
           indirect_field->setImplicit();
 
-          indirect_field->setAccess(TypeSystemClang::UnifyAccessSpecifiers(
+          indirect_field->setAccess(TypeSystemMiniLLVM::UnifyAccessSpecifiers(
               field_pos->getAccess(), nested_indirect_field_decl->getAccess()));
 
           indirect_fields.push_back(indirect_field);
@@ -7632,10 +7617,10 @@ void TypeSystemClang::BuildIndirectFields(const CompilerType &type) {
   }
 }
 
-void TypeSystemClang::SetIsPacked(const CompilerType &type) {
+void TypeSystemMiniLLVM::SetIsPacked(const CompilerType &type) {
   if (type) {
     auto ts = type.GetTypeSystem();
-    auto ast = ts.dyn_cast_or_null<TypeSystemClang>();
+    auto ast = ts.dyn_cast_or_null<TypeSystemMiniLLVM>();
     if (ast) {
       clang::RecordDecl *record_decl = GetAsRecordDecl(type);
 
@@ -7648,14 +7633,14 @@ void TypeSystemClang::SetIsPacked(const CompilerType &type) {
   }
 }
 
-clang::VarDecl *TypeSystemClang::AddVariableToRecordType(
+clang::VarDecl *TypeSystemMiniLLVM::AddVariableToRecordType(
     const CompilerType &type, llvm::StringRef name,
     const CompilerType &var_type, AccessType access) {
   if (!type.IsValid() || !var_type.IsValid())
     return nullptr;
 
   auto ts = type.GetTypeSystem();
-  auto ast = ts.dyn_cast_or_null<TypeSystemClang>();
+  auto ast = ts.dyn_cast_or_null<TypeSystemMiniLLVM>();
   if (!ast)
     return nullptr;
 
@@ -7679,7 +7664,7 @@ clang::VarDecl *TypeSystemClang::AddVariableToRecordType(
     return nullptr;
 
   var_decl->setAccess(
-      TypeSystemClang::ConvertAccessTypeToAccessSpecifier(access));
+      TypeSystemMiniLLVM::ConvertAccessTypeToAccessSpecifier(access));
   record_decl->addDecl(var_decl);
 
   VerifyDecl(var_decl);
@@ -7687,7 +7672,7 @@ clang::VarDecl *TypeSystemClang::AddVariableToRecordType(
   return var_decl;
 }
 
-void TypeSystemClang::SetIntegerInitializerForVariable(
+void TypeSystemMiniLLVM::SetIntegerInitializerForVariable(
     VarDecl *var, const llvm::APInt &init_value) {
   assert(!var->hasInit() && "variable already initialized");
 
@@ -7712,7 +7697,7 @@ void TypeSystemClang::SetIntegerInitializerForVariable(
   }
 }
 
-void TypeSystemClang::SetFloatingInitializerForVariable(
+void TypeSystemMiniLLVM::SetFloatingInitializerForVariable(
     clang::VarDecl *var, const llvm::APFloat &init_value) {
   assert(!var->hasInit() && "variable already initialized");
 
@@ -7723,7 +7708,7 @@ void TypeSystemClang::SetFloatingInitializerForVariable(
       ast, init_value, true, qt.getUnqualifiedType(), SourceLocation()));
 }
 
-clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
+clang::CXXMethodDecl *TypeSystemMiniLLVM::AddMethodToCXXRecordType(
     lldb::opaque_compiler_type_t type, llvm::StringRef name,
     const char *mangled_name, const CompilerType &method_clang_type,
     lldb::AccessType access, bool is_virtual, bool is_static, bool is_inline,
@@ -7806,7 +7791,7 @@ clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
         // create a method and add it to the class, clang will assert and
         // crash, so we need to make sure things are acceptable.
         const bool is_method = true;
-        if (!TypeSystemClang::CheckOverloadedOperatorKindParameterCount(
+        if (!TypeSystemMiniLLVM::CheckOverloadedOperatorKindParameterCount(
                 is_method, op_kind, num_params))
           return nullptr;
         cxx_method_decl = clang::CXXMethodDecl::CreateDeserialized(
@@ -7850,7 +7835,7 @@ clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
   SetMemberOwningModule(cxx_method_decl, cxx_record_decl);
 
   clang::AccessSpecifier access_specifier =
-      TypeSystemClang::ConvertAccessTypeToAccessSpecifier(access);
+      TypeSystemMiniLLVM::ConvertAccessTypeToAccessSpecifier(access);
 
   cxx_method_decl->setAccess(access_specifier);
   cxx_method_decl->setVirtualAsWritten(is_virtual);
@@ -7920,7 +7905,7 @@ clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
   return cxx_method_decl;
 }
 
-void TypeSystemClang::AddMethodOverridesForCXXRecordType(
+void TypeSystemMiniLLVM::AddMethodOverridesForCXXRecordType(
     lldb::opaque_compiler_type_t type) {
   if (auto *record = GetAsCXXRecordDecl(type))
     for (auto *method : record->methods())
@@ -7930,7 +7915,7 @@ void TypeSystemClang::AddMethodOverridesForCXXRecordType(
 #pragma mark C++ Base Classes
 
 std::unique_ptr<clang::CXXBaseSpecifier>
-TypeSystemClang::CreateBaseClassSpecifier(lldb::opaque_compiler_type_t type,
+TypeSystemMiniLLVM::CreateBaseClassSpecifier(lldb::opaque_compiler_type_t type,
                                           AccessType access, bool is_virtual,
                                           bool base_of_class) {
   if (!type)
@@ -7938,12 +7923,12 @@ TypeSystemClang::CreateBaseClassSpecifier(lldb::opaque_compiler_type_t type,
 
   return std::make_unique<clang::CXXBaseSpecifier>(
       clang::SourceRange(), is_virtual, base_of_class,
-      TypeSystemClang::ConvertAccessTypeToAccessSpecifier(access),
+      TypeSystemMiniLLVM::ConvertAccessTypeToAccessSpecifier(access),
       getASTContext().getTrivialTypeSourceInfo(GetQualType(type)),
       clang::SourceLocation());
 }
 
-bool TypeSystemClang::TransferBaseClasses(
+bool TypeSystemMiniLLVM::TransferBaseClasses(
     lldb::opaque_compiler_type_t type,
     std::vector<std::unique_ptr<clang::CXXBaseSpecifier>> bases) {
   if (!type)
@@ -7962,10 +7947,10 @@ bool TypeSystemClang::TransferBaseClasses(
   return true;
 }
 
-bool TypeSystemClang::SetObjCSuperClass(
+bool TypeSystemMiniLLVM::SetObjCSuperClass(
     const CompilerType &type, const CompilerType &superclass_clang_type) {
   auto ts = type.GetTypeSystem();
-  auto ast = ts.dyn_cast_or_null<TypeSystemClang>();
+  auto ast = ts.dyn_cast_or_null<TypeSystemMiniLLVM>();
   if (!ast)
     return false;
   clang::ASTContext &clang_ast = ast->getASTContext();
@@ -7985,7 +7970,7 @@ bool TypeSystemClang::SetObjCSuperClass(
   return false;
 }
 
-bool TypeSystemClang::AddObjCClassProperty(
+bool TypeSystemMiniLLVM::AddObjCClassProperty(
     const CompilerType &type, const char *property_name,
     const CompilerType &property_clang_type, clang::ObjCIvarDecl *ivar_decl,
     const char *property_setter_name, const char *property_getter_name,
@@ -7994,7 +7979,7 @@ bool TypeSystemClang::AddObjCClassProperty(
       property_name[0] == '\0')
     return false;
   auto ts = type.GetTypeSystem();
-  auto ast = ts.dyn_cast_or_null<TypeSystemClang>();
+  auto ast = ts.dyn_cast_or_null<TypeSystemMiniLLVM>();
   if (!ast)
     return false;
   clang::ASTContext &clang_ast = ast->getASTContext();
@@ -8191,7 +8176,7 @@ bool TypeSystemClang::AddObjCClassProperty(
   return true;
 }
 
-bool TypeSystemClang::IsObjCClassTypeAndHasIVars(const CompilerType &type,
+bool TypeSystemMiniLLVM::IsObjCClassTypeAndHasIVars(const CompilerType &type,
                                                  bool check_superclass) {
   clang::ObjCInterfaceDecl *class_interface_decl = GetAsObjCInterfaceDecl(type);
   if (class_interface_decl)
@@ -8199,7 +8184,7 @@ bool TypeSystemClang::IsObjCClassTypeAndHasIVars(const CompilerType &type,
   return false;
 }
 
-clang::ObjCMethodDecl *TypeSystemClang::AddMethodToObjCObjectType(
+clang::ObjCMethodDecl *TypeSystemMiniLLVM::AddMethodToObjCObjectType(
     const CompilerType &type,
     const char *name, // the full symbol name as seen in the symbol table
                       // (lldb::opaque_compiler_type_t type, "-[NString
@@ -8214,7 +8199,7 @@ clang::ObjCMethodDecl *TypeSystemClang::AddMethodToObjCObjectType(
   if (class_interface_decl == nullptr)
     return nullptr;
   auto ts = type.GetTypeSystem();
-  auto lldb_ast = ts.dyn_cast_or_null<TypeSystemClang>();
+  auto lldb_ast = ts.dyn_cast_or_null<TypeSystemMiniLLVM>();
   if (lldb_ast == nullptr)
     return nullptr;
   clang::ASTContext &ast = lldb_ast->getASTContext();
@@ -8334,7 +8319,7 @@ clang::ObjCMethodDecl *TypeSystemClang::AddMethodToObjCObjectType(
   return objc_method_decl;
 }
 
-bool TypeSystemClang::SetHasExternalStorage(lldb::opaque_compiler_type_t type,
+bool TypeSystemMiniLLVM::SetHasExternalStorage(lldb::opaque_compiler_type_t type,
                                             bool has_extern) {
   if (!type)
     return false;
@@ -8387,7 +8372,7 @@ bool TypeSystemClang::SetHasExternalStorage(lldb::opaque_compiler_type_t type,
 
 #pragma mark TagDecl
 
-bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
+bool TypeSystemMiniLLVM::StartTagDeclarationDefinition(const CompilerType &type) {
   clang::QualType qual_type(ClangUtil::GetQualType(type));
   if (!qual_type.isNull()) {
     const clang::TagType *tag_type = qual_type->getAs<clang::TagType>();
@@ -8412,19 +8397,19 @@ bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
   return false;
 }
 
-bool TypeSystemClang::CompleteTagDeclarationDefinition(
+bool TypeSystemMiniLLVM::CompleteTagDeclarationDefinition(
     const CompilerType &type) {
   clang::QualType qual_type(ClangUtil::GetQualType(type));
   if (qual_type.isNull())
     return false;
 
   auto ts = type.GetTypeSystem();
-  auto lldb_ast = ts.dyn_cast_or_null<TypeSystemClang>();
+  auto lldb_ast = ts.dyn_cast_or_null<TypeSystemMiniLLVM>();
   if (lldb_ast == nullptr)
     return false;
 
   // Make sure we use the same methodology as
-  // TypeSystemClang::StartTagDeclarationDefinition() as to how we start/end
+  // TypeSystemMiniLLVM::StartTagDeclarationDefinition() as to how we start/end
   // the definition.
   const clang::TagType *tag_type = qual_type->getAs<clang::TagType>();
   if (tag_type) {
@@ -8496,7 +8481,7 @@ bool TypeSystemClang::CompleteTagDeclarationDefinition(
   return true;
 }
 
-clang::EnumConstantDecl *TypeSystemClang::AddEnumerationValueToEnumerationType(
+clang::EnumConstantDecl *TypeSystemMiniLLVM::AddEnumerationValueToEnumerationType(
     const CompilerType &enum_type, const Declaration &decl, const char *name,
     const llvm::APSInt &value) {
 
@@ -8544,7 +8529,7 @@ clang::EnumConstantDecl *TypeSystemClang::AddEnumerationValueToEnumerationType(
   return enumerator_decl;
 }
 
-clang::EnumConstantDecl *TypeSystemClang::AddEnumerationValueToEnumerationType(
+clang::EnumConstantDecl *TypeSystemMiniLLVM::AddEnumerationValueToEnumerationType(
     const CompilerType &enum_type, const Declaration &decl, const char *name,
     int64_t enum_value, uint32_t enum_value_bit_size) {
   CompilerType underlying_type = GetEnumerationIntegerType(enum_type);
@@ -8557,7 +8542,7 @@ clang::EnumConstantDecl *TypeSystemClang::AddEnumerationValueToEnumerationType(
   return AddEnumerationValueToEnumerationType(enum_type, decl, name, value);
 }
 
-CompilerType TypeSystemClang::GetEnumerationIntegerType(CompilerType type) {
+CompilerType TypeSystemMiniLLVM::GetEnumerationIntegerType(CompilerType type) {
   clang::QualType qt(ClangUtil::GetQualType(type));
   const clang::Type *clang_type = qt.getTypePtrOrNull();
   const auto *enum_type = llvm::dyn_cast_or_null<clang::EnumType>(clang_type);
@@ -8568,12 +8553,12 @@ CompilerType TypeSystemClang::GetEnumerationIntegerType(CompilerType type) {
 }
 
 CompilerType
-TypeSystemClang::CreateMemberPointerType(const CompilerType &type,
+TypeSystemMiniLLVM::CreateMemberPointerType(const CompilerType &type,
                                          const CompilerType &pointee_type) {
   if (type && pointee_type.IsValid() &&
       type.GetTypeSystem() == pointee_type.GetTypeSystem()) {
     auto ts = type.GetTypeSystem();
-    auto ast = ts.dyn_cast_or_null<TypeSystemClang>();
+    auto ast = ts.dyn_cast_or_null<TypeSystemMiniLLVM>();
     if (!ast)
       return CompilerType();
     return ast->GetType(ast->getASTContext().getMemberPointerType(
@@ -8588,7 +8573,7 @@ TypeSystemClang::CreateMemberPointerType(const CompilerType &type,
 
 #ifndef NDEBUG
 LLVM_DUMP_METHOD void
-TypeSystemClang::dump(lldb::opaque_compiler_type_t type) const {
+TypeSystemMiniLLVM::dump(lldb::opaque_compiler_type_t type) const {
   if (!type)
     return;
   clang::QualType qual_type(GetQualType(type));
@@ -8596,11 +8581,11 @@ TypeSystemClang::dump(lldb::opaque_compiler_type_t type) const {
 }
 #endif
 
-void TypeSystemClang::Dump(llvm::raw_ostream &output) {
+void TypeSystemMiniLLVM::Dump(llvm::raw_ostream &output) {
   GetTranslationUnitDecl()->dump(output);
 }
 
-void TypeSystemClang::DumpFromSymbolFile(Stream &s,
+void TypeSystemMiniLLVM::DumpFromSymbolFile(Stream &s,
                                          llvm::StringRef symbol_name) {
   SymbolFile *symfile = GetSymbolFile();
 
@@ -8743,7 +8728,7 @@ static bool DumpEnumValue(const clang::QualType &qual_type, Stream &s,
   return true;
 }
 
-bool TypeSystemClang::DumpTypeValue(
+bool TypeSystemMiniLLVM::DumpTypeValue(
     lldb::opaque_compiler_type_t type, Stream &s, lldb::Format format,
     const lldb_private::DataExtractor &data, lldb::offset_t byte_offset,
     size_t byte_size, uint32_t bitfield_bit_size, uint32_t bitfield_bit_offset,
@@ -8867,7 +8852,7 @@ bool TypeSystemClang::DumpTypeValue(
   return false;
 }
 
-void TypeSystemClang::DumpTypeDescription(lldb::opaque_compiler_type_t type,
+void TypeSystemMiniLLVM::DumpTypeDescription(lldb::opaque_compiler_type_t type,
                                           lldb::DescriptionLevel level) {
   StreamFile s(stdout, false);
   DumpTypeDescription(type, s, level);
@@ -8879,7 +8864,7 @@ void TypeSystemClang::DumpTypeDescription(lldb::opaque_compiler_type_t type,
   }
 }
 
-void TypeSystemClang::DumpTypeDescription(lldb::opaque_compiler_type_t type,
+void TypeSystemMiniLLVM::DumpTypeDescription(lldb::opaque_compiler_type_t type,
                                           Stream &s,
                                           lldb::DescriptionLevel level) {
   if (type) {
@@ -8968,7 +8953,7 @@ void TypeSystemClang::DumpTypeDescription(lldb::opaque_compiler_type_t type,
 }
 }
 
-void TypeSystemClang::DumpTypeName(const CompilerType &type) {
+void TypeSystemMiniLLVM::DumpTypeName(const CompilerType &type) {
   if (ClangUtil::IsClangType(type)) {
     clang::QualType qual_type(
         ClangUtil::GetCanonicalQualType(ClangUtil::RemoveFastQualifiers(type)));
@@ -9034,16 +9019,16 @@ void TypeSystemClang::DumpTypeName(const CompilerType &type) {
           llvm::cast<clang::ParenType>(qual_type)->desugar().getAsOpaquePtr()));
 
     default:
-      printf("TypeSystemClang::DumpTypeName() type_class = %u", type_class);
+      printf("TypeSystemMiniLLVM::DumpTypeName() type_class = %u", type_class);
       break;
     }
   }
 }
 
-clang::ClassTemplateDecl *TypeSystemClang::ParseClassTemplateDecl(
+clang::ClassTemplateDecl *TypeSystemMiniLLVM::ParseClassTemplateDecl(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     lldb::AccessType access_type, const char *parent_name, int tag_decl_kind,
-    const TypeSystemClang::TemplateParameterInfos &template_param_infos) {
+    const TypeSystemMiniLLVM::TemplateParameterInfos &template_param_infos) {
   if (template_param_infos.IsValid()) {
     std::string template_basename(parent_name);
     // With -gsimple-template-names we may omit template parameters in the name.
@@ -9057,7 +9042,7 @@ clang::ClassTemplateDecl *TypeSystemClang::ParseClassTemplateDecl(
   return nullptr;
 }
 
-void TypeSystemClang::CompleteTagDecl(clang::TagDecl *decl) {
+void TypeSystemMiniLLVM::CompleteTagDecl(clang::TagDecl *decl) {
   SymbolFile *sym_file = GetSymbolFile();
   if (sym_file) {
     CompilerType clang_type = GetTypeForDecl(decl);
@@ -9066,7 +9051,7 @@ void TypeSystemClang::CompleteTagDecl(clang::TagDecl *decl) {
   }
 }
 
-void TypeSystemClang::CompleteObjCInterfaceDecl(
+void TypeSystemMiniLLVM::CompleteObjCInterfaceDecl(
     clang::ObjCInterfaceDecl *decl) {
   SymbolFile *sym_file = GetSymbolFile();
   if (sym_file) {
@@ -9076,31 +9061,25 @@ void TypeSystemClang::CompleteObjCInterfaceDecl(
   }
 }
 
-DWARFASTParser *TypeSystemClang::GetDWARFParser() {
-#ifndef CONSOLE_LOG_SAVER
-  return nullptr;
-#else
-  if (!m_dwarf_ast_parser_up)
-    m_dwarf_ast_parser_up = std::make_unique<DWARFASTParserClang>(*this);
-  return m_dwarf_ast_parser_up.get();
-#endif
+DWARFASTParser *TypeSystemMiniLLVM::GetDWARFParser() {
+  return nullptr
 }
 
-#if CONSOLE_LOG_SAVER || _WIN32
-PDBASTParser *TypeSystemClang::GetPDBParser() {
+#if _WIN32
+PDBASTParser *TypeSystemMiniLLVM::GetPDBParser() {
   if (!m_pdb_ast_parser_up)
     m_pdb_ast_parser_up = std::make_unique<PDBASTParser>(*this);
   return m_pdb_ast_parser_up.get();
 }
 
-npdb::PdbAstBuilder *TypeSystemClang::GetNativePDBParser() {
+npdb::PdbAstBuilder *TypeSystemMiniLLVM::GetNativePDBParser() {
   if (!m_native_pdb_ast_parser_up)
     m_native_pdb_ast_parser_up = std::make_unique<npdb::PdbAstBuilder>(*this);
   return m_native_pdb_ast_parser_up.get();
 }
 #endif
 
-bool TypeSystemClang::LayoutRecordType(
+bool TypeSystemMiniLLVM::LayoutRecordType(
     const clang::RecordDecl *record_decl, uint64_t &bit_size,
     uint64_t &alignment,
     llvm::DenseMap<const clang::FieldDecl *, uint64_t> &field_offsets,
@@ -9111,7 +9090,7 @@ bool TypeSystemClang::LayoutRecordType(
   lldb_private::ClangASTImporter *importer = nullptr;
   if (m_dwarf_ast_parser_up)
     importer = &m_dwarf_ast_parser_up->GetClangASTImporter();
-#if CONSOLE_LOG_SAVER || _WIN32
+#if _WIN32
   if (!importer && m_pdb_ast_parser_up)
     importer = &m_pdb_ast_parser_up->GetClangASTImporter();
   if (!importer && m_native_pdb_ast_parser_up)
@@ -9126,7 +9105,7 @@ bool TypeSystemClang::LayoutRecordType(
 
 // CompilerDecl override functions
 
-ConstString TypeSystemClang::DeclGetName(void *opaque_decl) {
+ConstString TypeSystemMiniLLVM::DeclGetName(void *opaque_decl) {
   if (opaque_decl) {
     clang::NamedDecl *nd =
         llvm::dyn_cast<NamedDecl>((clang::Decl *)opaque_decl);
@@ -9136,7 +9115,7 @@ ConstString TypeSystemClang::DeclGetName(void *opaque_decl) {
   return ConstString();
 }
 
-ConstString TypeSystemClang::DeclGetMangledName(void *opaque_decl) {
+ConstString TypeSystemMiniLLVM::DeclGetMangledName(void *opaque_decl) {
   if (opaque_decl) {
     clang::NamedDecl *nd =
         llvm::dyn_cast<clang::NamedDecl>((clang::Decl *)opaque_decl);
@@ -9166,13 +9145,13 @@ ConstString TypeSystemClang::DeclGetMangledName(void *opaque_decl) {
   return ConstString();
 }
 
-CompilerDeclContext TypeSystemClang::DeclGetDeclContext(void *opaque_decl) {
+CompilerDeclContext TypeSystemMiniLLVM::DeclGetDeclContext(void *opaque_decl) {
   if (opaque_decl)
     return CreateDeclContext(((clang::Decl *)opaque_decl)->getDeclContext());
   return CompilerDeclContext();
 }
 
-CompilerType TypeSystemClang::DeclGetFunctionReturnType(void *opaque_decl) {
+CompilerType TypeSystemMiniLLVM::DeclGetFunctionReturnType(void *opaque_decl) {
   if (clang::FunctionDecl *func_decl =
           llvm::dyn_cast<clang::FunctionDecl>((clang::Decl *)opaque_decl))
     return GetType(func_decl->getReturnType());
@@ -9183,7 +9162,7 @@ CompilerType TypeSystemClang::DeclGetFunctionReturnType(void *opaque_decl) {
     return CompilerType();
 }
 
-size_t TypeSystemClang::DeclGetFunctionNumArguments(void *opaque_decl) {
+size_t TypeSystemMiniLLVM::DeclGetFunctionNumArguments(void *opaque_decl) {
   if (clang::FunctionDecl *func_decl =
           llvm::dyn_cast<clang::FunctionDecl>((clang::Decl *)opaque_decl))
     return func_decl->param_size();
@@ -9221,7 +9200,7 @@ static CompilerContextKind GetCompilerKind(clang::Decl::Kind clang_kind,
 }
 
 static void
-InsertCompilerContext(TypeSystemClang *ts, clang::DeclContext *decl_ctx,
+InsertCompilerContext(TypeSystemMiniLLVM *ts, clang::DeclContext *decl_ctx,
                       std::vector<lldb_private::CompilerContext> &context) {
   if (decl_ctx == nullptr)
     return;
@@ -9236,7 +9215,7 @@ InsertCompilerContext(TypeSystemClang *ts, clang::DeclContext *decl_ctx,
 }
 
 std::vector<lldb_private::CompilerContext>
-TypeSystemClang::DeclGetCompilerContext(void *opaque_decl) {
+TypeSystemMiniLLVM::DeclGetCompilerContext(void *opaque_decl) {
   std::vector<lldb_private::CompilerContext> context;
   ConstString decl_name = DeclGetName(opaque_decl);
   if (decl_name) {
@@ -9252,7 +9231,7 @@ TypeSystemClang::DeclGetCompilerContext(void *opaque_decl) {
   return context;
 }
 
-CompilerType TypeSystemClang::DeclGetFunctionArgumentType(void *opaque_decl,
+CompilerType TypeSystemMiniLLVM::DeclGetFunctionArgumentType(void *opaque_decl,
                                                           size_t idx) {
   if (clang::FunctionDecl *func_decl =
           llvm::dyn_cast<clang::FunctionDecl>((clang::Decl *)opaque_decl)) {
@@ -9270,7 +9249,7 @@ CompilerType TypeSystemClang::DeclGetFunctionArgumentType(void *opaque_decl,
   return CompilerType();
 }
 
-Scalar TypeSystemClang::DeclGetConstantValue(void *opaque_decl) {
+Scalar TypeSystemMiniLLVM::DeclGetConstantValue(void *opaque_decl) {
   clang::Decl *decl = static_cast<clang::Decl *>(opaque_decl);
   clang::VarDecl *var_decl = llvm::dyn_cast<clang::VarDecl>(decl);
   if (!var_decl)
@@ -9287,7 +9266,7 @@ Scalar TypeSystemClang::DeclGetConstantValue(void *opaque_decl) {
 
 // CompilerDeclContext functions
 
-std::vector<CompilerDecl> TypeSystemClang::DeclContextFindDeclByName(
+std::vector<CompilerDecl> TypeSystemMiniLLVM::DeclContextFindDeclByName(
     void *opaque_decl_ctx, ConstString name, const bool ignore_using_decls) {
   std::vector<CompilerDecl> found_decls;
   SymbolFile *symbol_file = GetSymbolFile();
@@ -9383,7 +9362,7 @@ std::vector<CompilerDecl> TypeSystemClang::DeclContextFindDeclByName(
 // below the global scope.  More work needs to be done to recognise that, if
 // the decl we're trying to look up is static, we should compare its source
 // file with that of the current scope and return a lower number for it.
-uint32_t TypeSystemClang::CountDeclLevels(clang::DeclContext *frame_decl_ctx,
+uint32_t TypeSystemMiniLLVM::CountDeclLevels(clang::DeclContext *frame_decl_ctx,
                                           clang::DeclContext *child_decl_ctx,
                                           ConstString *child_name,
                                           CompilerType *child_type) {
@@ -9465,7 +9444,7 @@ uint32_t TypeSystemClang::CountDeclLevels(clang::DeclContext *frame_decl_ctx,
   return LLDB_INVALID_DECL_LEVEL;
 }
 
-ConstString TypeSystemClang::DeclContextGetName(void *opaque_decl_ctx) {
+ConstString TypeSystemMiniLLVM::DeclContextGetName(void *opaque_decl_ctx) {
   if (opaque_decl_ctx) {
     clang::NamedDecl *named_decl =
         llvm::dyn_cast<clang::NamedDecl>((clang::DeclContext *)opaque_decl_ctx);
@@ -9482,7 +9461,7 @@ ConstString TypeSystemClang::DeclContextGetName(void *opaque_decl_ctx) {
 }
 
 ConstString
-TypeSystemClang::DeclContextGetScopeQualifiedName(void *opaque_decl_ctx) {
+TypeSystemMiniLLVM::DeclContextGetScopeQualifiedName(void *opaque_decl_ctx) {
   if (opaque_decl_ctx) {
     clang::NamedDecl *named_decl =
         llvm::dyn_cast<clang::NamedDecl>((clang::DeclContext *)opaque_decl_ctx);
@@ -9492,7 +9471,7 @@ TypeSystemClang::DeclContextGetScopeQualifiedName(void *opaque_decl_ctx) {
   return ConstString();
 }
 
-bool TypeSystemClang::DeclContextIsClassMethod(void *opaque_decl_ctx) {
+bool TypeSystemMiniLLVM::DeclContextIsClassMethod(void *opaque_decl_ctx) {
   if (!opaque_decl_ctx)
     return false;
 
@@ -9511,14 +9490,14 @@ bool TypeSystemClang::DeclContextIsClassMethod(void *opaque_decl_ctx) {
 }
 
 std::vector<lldb_private::CompilerContext>
-TypeSystemClang::DeclContextGetCompilerContext(void *opaque_decl_ctx) {
+TypeSystemMiniLLVM::DeclContextGetCompilerContext(void *opaque_decl_ctx) {
   auto *decl_ctx = (clang::DeclContext *)opaque_decl_ctx;
   std::vector<lldb_private::CompilerContext> context;
   InsertCompilerContext(this, decl_ctx, context);
   return context;
 }
 
-bool TypeSystemClang::DeclContextIsContainedInLookup(
+bool TypeSystemMiniLLVM::DeclContextIsContainedInLookup(
     void *opaque_decl_ctx, void *other_opaque_decl_ctx) {
   auto *decl_ctx = (clang::DeclContext *)opaque_decl_ctx;
   auto *other = (clang::DeclContext *)other_opaque_decl_ctx;
@@ -9546,7 +9525,7 @@ bool TypeSystemClang::DeclContextIsContainedInLookup(
 }
 
 lldb::LanguageType
-TypeSystemClang::DeclContextGetLanguage(void *opaque_decl_ctx) {
+TypeSystemMiniLLVM::DeclContextGetLanguage(void *opaque_decl_ctx) {
   if (!opaque_decl_ctx)
     return eLanguageTypeUnknown;
 
@@ -9564,18 +9543,18 @@ TypeSystemClang::DeclContextGetLanguage(void *opaque_decl_ctx) {
 }
 
 static bool IsClangDeclContext(const CompilerDeclContext &dc) {
-  return dc.IsValid() && isa<TypeSystemClang>(dc.GetTypeSystem());
+  return dc.IsValid() && isa<TypeSystemMiniLLVM>(dc.GetTypeSystem());
 }
 
 clang::DeclContext *
-TypeSystemClang::DeclContextGetAsDeclContext(const CompilerDeclContext &dc) {
+TypeSystemMiniLLVM::DeclContextGetAsDeclContext(const CompilerDeclContext &dc) {
   if (IsClangDeclContext(dc))
     return (clang::DeclContext *)dc.GetOpaqueDeclContext();
   return nullptr;
 }
 
 ObjCMethodDecl *
-TypeSystemClang::DeclContextGetAsObjCMethodDecl(const CompilerDeclContext &dc) {
+TypeSystemMiniLLVM::DeclContextGetAsObjCMethodDecl(const CompilerDeclContext &dc) {
   if (IsClangDeclContext(dc))
     return llvm::dyn_cast<clang::ObjCMethodDecl>(
         (clang::DeclContext *)dc.GetOpaqueDeclContext());
@@ -9583,7 +9562,7 @@ TypeSystemClang::DeclContextGetAsObjCMethodDecl(const CompilerDeclContext &dc) {
 }
 
 CXXMethodDecl *
-TypeSystemClang::DeclContextGetAsCXXMethodDecl(const CompilerDeclContext &dc) {
+TypeSystemMiniLLVM::DeclContextGetAsCXXMethodDecl(const CompilerDeclContext &dc) {
   if (IsClangDeclContext(dc))
     return llvm::dyn_cast<clang::CXXMethodDecl>(
         (clang::DeclContext *)dc.GetOpaqueDeclContext());
@@ -9591,7 +9570,7 @@ TypeSystemClang::DeclContextGetAsCXXMethodDecl(const CompilerDeclContext &dc) {
 }
 
 clang::FunctionDecl *
-TypeSystemClang::DeclContextGetAsFunctionDecl(const CompilerDeclContext &dc) {
+TypeSystemMiniLLVM::DeclContextGetAsFunctionDecl(const CompilerDeclContext &dc) {
   if (IsClangDeclContext(dc))
     return llvm::dyn_cast<clang::FunctionDecl>(
         (clang::DeclContext *)dc.GetOpaqueDeclContext());
@@ -9599,7 +9578,7 @@ TypeSystemClang::DeclContextGetAsFunctionDecl(const CompilerDeclContext &dc) {
 }
 
 clang::NamespaceDecl *
-TypeSystemClang::DeclContextGetAsNamespaceDecl(const CompilerDeclContext &dc) {
+TypeSystemMiniLLVM::DeclContextGetAsNamespaceDecl(const CompilerDeclContext &dc) {
   if (IsClangDeclContext(dc))
     return llvm::dyn_cast<clang::NamespaceDecl>(
         (clang::DeclContext *)dc.GetOpaqueDeclContext());
@@ -9607,25 +9586,25 @@ TypeSystemClang::DeclContextGetAsNamespaceDecl(const CompilerDeclContext &dc) {
 }
 
 std::optional<ClangASTMetadata>
-TypeSystemClang::DeclContextGetMetaData(const CompilerDeclContext &dc,
+TypeSystemMiniLLVM::DeclContextGetMetaData(const CompilerDeclContext &dc,
                                         const Decl *object) {
-  TypeSystemClang *ast = llvm::cast<TypeSystemClang>(dc.GetTypeSystem());
+  TypeSystemMiniLLVM *ast = llvm::cast<TypeSystemMiniLLVM>(dc.GetTypeSystem());
   return ast->GetMetadata(object);
 }
 
 clang::ASTContext *
-TypeSystemClang::DeclContextGetTypeSystemClang(const CompilerDeclContext &dc) {
-  TypeSystemClang *ast =
-      llvm::dyn_cast_or_null<TypeSystemClang>(dc.GetTypeSystem());
+TypeSystemMiniLLVM::DeclContextGetTypeSystemMiniLLVM(const CompilerDeclContext &dc) {
+  TypeSystemMiniLLVM *ast =
+      llvm::dyn_cast_or_null<TypeSystemMiniLLVM>(dc.GetTypeSystem());
   if (ast)
     return &ast->getASTContext();
   return nullptr;
 }
 
-void TypeSystemClang::RequireCompleteType(CompilerType type) {
+void TypeSystemMiniLLVM::RequireCompleteType(CompilerType type) {
   // Technically, enums can be incomplete too, but we don't handle those as they
   // are emitted even under -flimit-debug-info.
-  if (!TypeSystemClang::IsCXXClassType(type))
+  if (!TypeSystemMiniLLVM::IsCXXClassType(type))
     return;
 
   if (type.GetCompleteType())
@@ -9637,29 +9616,29 @@ void TypeSystemClang::RequireCompleteType(CompilerType type) {
   // different module.
   // Since we provide layout assistance, layouts of types containing this class
   // will be correct even if we  are not able to find the definition elsewhere.
-  bool started = TypeSystemClang::StartTagDeclarationDefinition(type);
+  bool started = TypeSystemMiniLLVM::StartTagDeclarationDefinition(type);
   lldbassert(started && "Unable to start a class type definition.");
-  TypeSystemClang::CompleteTagDeclarationDefinition(type);
+  TypeSystemMiniLLVM::CompleteTagDeclarationDefinition(type);
   const clang::TagDecl *td = ClangUtil::GetAsTagDecl(type);
-  auto ts = type.GetTypeSystem().dyn_cast_or_null<TypeSystemClang>();
+  auto ts = type.GetTypeSystem().dyn_cast_or_null<TypeSystemMiniLLVM>();
   if (ts)
     ts->SetDeclIsForcefullyCompleted(td);
 }
 
 namespace {
-/// A specialized scratch AST used within ScratchTypeSystemClang.
+/// A specialized scratch AST used within ScratchTypeSystemMiniLLVM.
 /// These are the ASTs backing the different IsolatedASTKinds. They behave
-/// like a normal ScratchTypeSystemClang but they don't own their own
+/// like a normal ScratchTypeSystemMiniLLVM but they don't own their own
 /// persistent  storage or target reference.
-class SpecializedScratchAST : public TypeSystemClang {
+class SpecializedScratchAST : public TypeSystemMiniLLVM {
 public:
-  /// \param name The display name of the TypeSystemClang instance.
-  /// \param triple The triple used for the TypeSystemClang instance.
+  /// \param name The display name of the TypeSystemMiniLLVM instance.
+  /// \param triple The triple used for the TypeSystemMiniLLVM instance.
   /// \param ast_source The ClangASTSource that should be used to complete
   ///                   type information.
   SpecializedScratchAST(llvm::StringRef name, llvm::Triple triple,
                         std::unique_ptr<ClangASTSource> ast_source)
-      : TypeSystemClang(name, triple),
+      : TypeSystemMiniLLVM(name, triple),
         m_scratch_ast_source_up(std::move(ast_source)) {
     // Setup the ClangASTSource to complete this AST.
     m_scratch_ast_source_up->InstallASTContext(*this);
@@ -9673,12 +9652,12 @@ public:
 };
 } // namespace
 
-char ScratchTypeSystemClang::ID;
-const std::nullopt_t ScratchTypeSystemClang::DefaultAST = std::nullopt;
+char ScratchTypeSystemMiniLLVM::ID;
+const std::nullopt_t ScratchTypeSystemMiniLLVM::DefaultAST = std::nullopt;
 
-ScratchTypeSystemClang::ScratchTypeSystemClang(Target &target,
+ScratchTypeSystemMiniLLVM::ScratchTypeSystemMiniLLVM(Target &target,
                                                llvm::Triple triple)
-    : TypeSystemClang("scratch ASTContext", triple), m_triple(triple),
+    : TypeSystemMiniLLVM("scratch ASTContext", triple), m_triple(triple),
       m_target_wp(target.shared_from_this()),
       m_persistent_variables(
           new ClangPersistentVariables(target.shared_from_this())) {
@@ -9689,49 +9668,49 @@ ScratchTypeSystemClang::ScratchTypeSystemClang(Target &target,
   SetExternalSource(proxy_ast_source);
 }
 
-void ScratchTypeSystemClang::Finalize() {
-  TypeSystemClang::Finalize();
+void ScratchTypeSystemMiniLLVM::Finalize() {
+  TypeSystemMiniLLVM::Finalize();
   m_scratch_ast_source_up.reset();
 }
 
-TypeSystemClangSP
-ScratchTypeSystemClang::GetForTarget(Target &target,
+TypeSystemMiniLLVMSP
+ScratchTypeSystemMiniLLVM::GetForTarget(Target &target,
                                      std::optional<IsolatedASTKind> ast_kind,
                                      bool create_on_demand) {
   auto type_system_or_err = target.GetScratchTypeSystemForLanguage(
       lldb::eLanguageTypeC, create_on_demand);
   if (auto err = type_system_or_err.takeError()) {
     LLDB_LOG_ERROR(GetLog(LLDBLog::Target), std::move(err),
-                   "Couldn't get scratch TypeSystemClang: {0}");
+                   "Couldn't get scratch TypeSystemMiniLLVM: {0}");
     return nullptr;
   }
   auto ts_sp = *type_system_or_err;
-  ScratchTypeSystemClang *scratch_ast =
-      llvm::dyn_cast_or_null<ScratchTypeSystemClang>(ts_sp.get());
+  ScratchTypeSystemMiniLLVM *scratch_ast =
+      llvm::dyn_cast_or_null<ScratchTypeSystemMiniLLVM>(ts_sp.get());
   if (!scratch_ast)
     return nullptr;
   // If no dedicated sub-AST was requested, just return the main AST.
   if (ast_kind == DefaultAST)
-    return std::static_pointer_cast<TypeSystemClang>(ts_sp);
+    return std::static_pointer_cast<TypeSystemMiniLLVM>(ts_sp);
   // Search the sub-ASTs.
-  return std::static_pointer_cast<TypeSystemClang>(
+  return std::static_pointer_cast<TypeSystemMiniLLVM>(
       scratch_ast->GetIsolatedAST(*ast_kind).shared_from_this());
 }
 
 /// Returns a human-readable name that uniquely identifiers the sub-AST kind.
 static llvm::StringRef
-GetNameForIsolatedASTKind(ScratchTypeSystemClang::IsolatedASTKind kind) {
+GetNameForIsolatedASTKind(ScratchTypeSystemMiniLLVM::IsolatedASTKind kind) {
   switch (kind) {
-  case ScratchTypeSystemClang::IsolatedASTKind::CppModules:
+  case ScratchTypeSystemMiniLLVM::IsolatedASTKind::CppModules:
     return "C++ modules";
   }
   llvm_unreachable("Unimplemented IsolatedASTKind?");
 }
 
-void ScratchTypeSystemClang::Dump(llvm::raw_ostream &output) {
+void ScratchTypeSystemMiniLLVM::Dump(llvm::raw_ostream &output) {
   // First dump the main scratch AST.
   output << "State of scratch Clang type system:\n";
-  TypeSystemClang::Dump(output);
+  TypeSystemMiniLLVM::Dump(output);
 
   // Now sort the isolated sub-ASTs.
   typedef std::pair<IsolatedASTKey, TypeSystem *> KeyAndTS;
@@ -9743,14 +9722,14 @@ void ScratchTypeSystemClang::Dump(llvm::raw_ostream &output) {
   // Dump each sub-AST too.
   for (const auto &a : sorted_typesystems) {
     IsolatedASTKind kind =
-        static_cast<ScratchTypeSystemClang::IsolatedASTKind>(a.first);
+        static_cast<ScratchTypeSystemMiniLLVM::IsolatedASTKind>(a.first);
     output << "State of scratch Clang type subsystem "
            << GetNameForIsolatedASTKind(kind) << ":\n";
     a.second->Dump(output);
   }
 }
 
-UserExpression *ScratchTypeSystemClang::GetUserExpression(
+UserExpression *ScratchTypeSystemMiniLLVM::GetUserExpression(
     llvm::StringRef expr, llvm::StringRef prefix, SourceLanguage language,
     Expression::ResultType desired_type,
     const EvaluateExpressionOptions &options, ValueObject *ctx_obj) {
@@ -9762,7 +9741,7 @@ UserExpression *ScratchTypeSystemClang::GetUserExpression(
                                  desired_type, options, ctx_obj);
 }
 
-FunctionCaller *ScratchTypeSystemClang::GetFunctionCaller(
+FunctionCaller *ScratchTypeSystemMiniLLVM::GetFunctionCaller(
     const CompilerType &return_type, const Address &function_address,
     const ValueList &arg_value_list, const char *name) {
   TargetSP target_sp = m_target_wp.lock();
@@ -9778,32 +9757,23 @@ FunctionCaller *ScratchTypeSystemClang::GetFunctionCaller(
 }
 
 std::unique_ptr<UtilityFunction>
-ScratchTypeSystemClang::CreateUtilityFunction(std::string text,
+ScratchTypeSystemMiniLLVM::CreateUtilityFunction(std::string text,
                                               std::string name) {
   TargetSP target_sp = m_target_wp.lock();
   if (!target_sp)
     return {};
 
-#ifndef CONSOLE_LOG_SAVER
-  if (text.find("#!mini-llvm") != std::string::npos) {
-    return std::make_unique<MiniLLVMUtilityFunction>(
-        *target_sp.get(), std::move(text), std::move(name),
-        target_sp->GetDebugUtilityExpression());
-  }
-  return {};
-#else
-  return std::make_unique<ClangUtilityFunction>(
+  return std::make_unique<MiniLLVMUtilityFunction>(
       *target_sp.get(), std::move(text), std::move(name),
       target_sp->GetDebugUtilityExpression());
-#endif
 }
 
 PersistentExpressionState *
-ScratchTypeSystemClang::GetPersistentExpressionState() {
+ScratchTypeSystemMiniLLVM::GetPersistentExpressionState() {
   return m_persistent_variables.get();
 }
 
-void ScratchTypeSystemClang::ForgetSource(ASTContext *src_ctx,
+void ScratchTypeSystemMiniLLVM::ForgetSource(ASTContext *src_ctx,
                                           ClangASTImporter &importer) {
   // Remove it as a source from the main AST.
   importer.ForgetSource(&getASTContext(), src_ctx);
@@ -9812,36 +9782,36 @@ void ScratchTypeSystemClang::ForgetSource(ASTContext *src_ctx,
     importer.ForgetSource(&a.second->getASTContext(), src_ctx);
 }
 
-std::unique_ptr<ClangASTSource> ScratchTypeSystemClang::CreateASTSource() {
+std::unique_ptr<ClangASTSource> ScratchTypeSystemMiniLLVM::CreateASTSource() {
   return std::make_unique<ClangASTSource>(
       m_target_wp.lock()->shared_from_this(),
       m_persistent_variables->GetClangASTImporter());
 }
 
 static llvm::StringRef
-GetSpecializedASTName(ScratchTypeSystemClang::IsolatedASTKind feature) {
+GetSpecializedASTName(ScratchTypeSystemMiniLLVM::IsolatedASTKind feature) {
   switch (feature) {
-  case ScratchTypeSystemClang::IsolatedASTKind::CppModules:
+  case ScratchTypeSystemMiniLLVM::IsolatedASTKind::CppModules:
     return "scratch ASTContext for C++ module types";
   }
   llvm_unreachable("Unimplemented ASTFeature kind?");
 }
 
-TypeSystemClang &ScratchTypeSystemClang::GetIsolatedAST(
-    ScratchTypeSystemClang::IsolatedASTKind feature) {
+TypeSystemMiniLLVM &ScratchTypeSystemMiniLLVM::GetIsolatedAST(
+    ScratchTypeSystemMiniLLVM::IsolatedASTKind feature) {
   auto found_ast = m_isolated_asts.find(feature);
   if (found_ast != m_isolated_asts.end())
     return *found_ast->second;
 
   // Couldn't find the requested sub-AST, so create it now.
-  std::shared_ptr<TypeSystemClang> new_ast_sp =
+  std::shared_ptr<TypeSystemMiniLLVM> new_ast_sp =
       std::make_shared<SpecializedScratchAST>(GetSpecializedASTName(feature),
                                               m_triple, CreateASTSource());
   m_isolated_asts.insert({feature, new_ast_sp});
   return *new_ast_sp;
 }
 
-bool TypeSystemClang::IsForcefullyCompleted(lldb::opaque_compiler_type_t type) {
+bool TypeSystemMiniLLVM::IsForcefullyCompleted(lldb::opaque_compiler_type_t type) {
   if (type) {
     clang::QualType qual_type(GetQualType(type));
     const clang::RecordType *record_type =
@@ -9856,7 +9826,7 @@ bool TypeSystemClang::IsForcefullyCompleted(lldb::opaque_compiler_type_t type) {
   return false;
 }
 
-bool TypeSystemClang::SetDeclIsForcefullyCompleted(const clang::TagDecl *td) {
+bool TypeSystemMiniLLVM::SetDeclIsForcefullyCompleted(const clang::TagDecl *td) {
   if (td == nullptr)
     return false;
   std::optional<ClangASTMetadata> metadata = GetMetadata(td);
@@ -9869,7 +9839,7 @@ bool TypeSystemClang::SetDeclIsForcefullyCompleted(const clang::TagDecl *td) {
   return true;
 }
 
-void TypeSystemClang::LogCreation() const {
+void TypeSystemMiniLLVM::LogCreation() const {
   if (auto *log = GetLog(LLDBLog::Expressions))
     LLDB_LOG(log, "Created new TypeSystem for (ASTContext*){0:x} '{1}'",
              &getASTContext(), getDisplayName());

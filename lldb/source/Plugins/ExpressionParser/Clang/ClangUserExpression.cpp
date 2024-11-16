@@ -15,14 +15,18 @@
 
 #include "ClangUserExpression.h"
 
+#if CONSOLE_LOG_SAVER
 #include "ASTResultSynthesizer.h"
 #include "ClangASTMetadata.h"
+#endif
 #include "ClangDiagnostic.h"
+#if CONSOLE_LOG_SAVER
 #include "ClangExpressionDeclMap.h"
 #include "ClangExpressionParser.h"
 #include "ClangModulesDeclVendor.h"
 #include "ClangPersistentVariables.h"
 #include "CppModuleConfiguration.h"
+#endif
 
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "lldb/Core/Debugger.h"
@@ -52,11 +56,18 @@
 #include "lldb/Utility/StreamString.h"
 #include "lldb/ValueObject/ValueObjectConstResult.h"
 
+#if CONSOLE_LOG_SAVER
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
+#endif
 
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/BinaryFormat/Dwarf.h"
+
+#if !CONSOLE_LOG_SAVER
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#endif
 
 using namespace lldb_private;
 
@@ -68,9 +79,15 @@ ClangUserExpression::ClangUserExpression(
     const EvaluateExpressionOptions &options, ValueObject *ctx_obj)
     : LLVMUserExpression(exe_scope, expr, prefix, language, desired_type,
                          options),
+#if CONSOLE_LOG_SAVER
       m_type_system_helper(*m_target_wp.lock(), options.GetExecutionPolicy() ==
                                                     eExecutionPolicyTopLevel),
+      
       m_result_delegate(exe_scope.CalculateTarget()), m_ctx_obj(ctx_obj) {
+#else
+      m_type_system_helper(),
+      m_target_func_addr(LLDB_INVALID_ADDRESS) {
+#endif
   switch (m_language.name) {
   case llvm::dwarf::DW_LNAME_C_plus_plus:
     m_allow_cxx = true;
@@ -88,6 +105,10 @@ ClangUserExpression::ClangUserExpression(
 
 ClangUserExpression::~ClangUserExpression() = default;
 
+#if !CONSOLE_LOG_SAVER
+void ClangUserExpression::ScanContext(ExecutionContext &exe_ctx, Status &err) {
+}
+#else
 void ClangUserExpression::ScanContext(ExecutionContext &exe_ctx, Status &err) {
   Log *log = GetLog(LLDBLog::Expressions);
 
@@ -517,12 +538,14 @@ CppModuleConfiguration GetModuleConfig(lldb::LanguageType language,
   // configuration.
   return CppModuleConfiguration(files, target->GetArchitecture().GetTriple());
 }
+#endif
 
 bool ClangUserExpression::PrepareForParsing(
     DiagnosticManager &diagnostic_manager, ExecutionContext &exe_ctx,
     bool for_completion) {
   InstallContext(exe_ctx);
 
+#if CONSOLE_LOG_SAVER
   if (!SetupPersistentState(diagnostic_manager, exe_ctx))
     return false;
 
@@ -548,6 +571,7 @@ bool ClangUserExpression::PrepareForParsing(
 
   CreateSourceCode(diagnostic_manager, exe_ctx, m_imported_cpp_modules,
                    for_completion);
+#endif
   return true;
 }
 
@@ -555,6 +579,79 @@ bool ClangUserExpression::TryParse(
     DiagnosticManager &diagnostic_manager, ExecutionContext &exe_ctx,
     lldb_private::ExecutionPolicy execution_policy, bool keep_result_in_memory,
     bool generate_debug_info) {
+#if !CONSOLE_LOG_SAVER
+  m_materializer_up = std::make_unique<Materializer>();
+
+  // We only accept "((void (*)())(address))()", error otherwise
+  std::string prefix_str = "((void (*)())(";
+  std::string suffix_str = "))()";
+
+  auto prefix_pos = m_expr_text.find("((void (*)())(");
+  auto suffix_pos = m_expr_text.find("))()");
+  if (prefix_pos == std::string::npos || suffix_pos == std::string::npos ||
+      prefix_pos >= suffix_pos) {
+    diagnostic_manager.PutString(
+        lldb::eSeverityError,
+        "expression must be a function call with a function pointer cast");
+    return false;
+  }
+
+  std::string_view address_str =
+      ((std::string_view)m_expr_text)
+          .substr(prefix_pos + prefix_str.length(),
+                  suffix_pos - prefix_pos - prefix_str.length());
+  lldb::addr_t address;
+  if (!llvm::to_integer(address_str, address)) {
+    diagnostic_manager.PutString(lldb::eSeverityError,
+                                 "address must be a valid integer");
+    return false;
+  }
+  m_target_func_addr = address;
+
+  // do JIT
+  std::unique_ptr<llvm::LLVMContext> TheContext =
+      std::make_unique<llvm::LLVMContext>();
+  std::unique_ptr<llvm::IRBuilder<>> Builder =
+      std::make_unique<llvm::IRBuilder<>>(*TheContext);
+  std::unique_ptr<llvm::Module> TheModule =
+      std::make_unique<llvm::Module>("top", *TheContext);
+  lldb_private::Status err;
+
+  unsigned ptr_size = 64;
+
+  llvm::FunctionType *noArgReturnVoid =
+      llvm::FunctionType::get(llvm::Type::getVoidTy(*TheContext), false);
+
+  llvm::Function *mainFunc =
+      llvm::Function::Create(noArgReturnVoid, llvm::Function::ExternalLinkage,
+                             "main", TheModule.get());
+  llvm::BasicBlock *mainBlock =
+      llvm::BasicBlock::Create(*TheContext, "", mainFunc);
+  Builder->SetInsertPoint(mainBlock);
+
+  auto *func_ptr_ty = llvm::PointerType::get(noArgReturnVoid, 0);
+  auto *func_addr_const = llvm::ConstantInt::get(*TheContext, llvm::APInt(ptr_size, address));
+  auto *func_ptr_const = llvm::ConstantExpr::getIntToPtr(func_addr_const, func_ptr_ty);
+  Builder->CreateCall(noArgReturnVoid, func_ptr_const);
+  Builder->CreateRetVoid();
+
+  SymbolContext sc;
+  ConstString function_name("main");
+  std::vector<std::string> target_feature;
+
+  m_execution_unit_sp = std::make_shared<IRExecutionUnit>(
+      TheContext, // handed off here
+      TheModule,  // handed off here
+      function_name, exe_ctx.GetTargetSP(), sc, target_feature);
+  m_execution_unit_sp->GetRunnableInfo(err, m_jit_start_addr, m_jit_end_addr);
+
+  if (err.Fail()) {
+    diagnostic_manager.PutString(lldb::eSeverityError,
+                                 "expression can't be interpreted or run");
+    return false;
+  }
+  return true;
+#else
   m_materializer_up = std::make_unique<Materializer>();
 
   ResetDeclMap(exe_ctx, m_result_delegate, keep_result_in_memory);
@@ -618,8 +715,10 @@ bool ClangUserExpression::TryParse(
     }
   }
   return true;
+#endif
 }
 
+#if CONSOLE_LOG_SAVER
 void ClangUserExpression::SetupCppModuleImports(ExecutionContext &exe_ctx) {
   Log *log = GetLog(LLDBLog::Expressions);
 
@@ -642,6 +741,7 @@ static bool shouldRetryWithCppModule(Target &target, ExecutionPolicy exe_policy)
     return false;
   return target.GetImportStdModule() == eImportStdModuleFallback;
 }
+#endif
 
 bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
                                 ExecutionContext &exe_ctx,
@@ -672,6 +772,7 @@ bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
 
   bool parse_success = TryParse(diagnostic_manager, exe_ctx, execution_policy,
                                 keep_result_in_memory, generate_debug_info);
+#if CONSOLE_LOG_SAVER // shouldRetryWithCppModule will be false
   // If the expression failed to parse, check if retrying parsing with a loaded
   // C++ module is possible.
   if (!parse_success && shouldRetryWithCppModule(*target, execution_policy)) {
@@ -696,6 +797,7 @@ bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
         diagnostic_manager = std::move(retry_manager);
     }
   }
+#endif
   if (!parse_success)
     return false;
 
@@ -741,6 +843,7 @@ bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
   return true;
 }
 
+#if CONSOLE_LOG_SAVER
 /// Converts an absolute position inside a given code string into
 /// a column/line pair.
 ///
@@ -869,11 +972,13 @@ lldb::addr_t ClangUserExpression::GetCppObjectPointer(
 
   return ret;
 }
+#endif
 
 bool ClangUserExpression::AddArguments(ExecutionContext &exe_ctx,
                                        std::vector<lldb::addr_t> &args,
                                        lldb::addr_t struct_address,
                                        DiagnosticManager &diagnostic_manager) {
+#if CONSOLE_LOG_SAVER
   lldb::addr_t object_ptr = LLDB_INVALID_ADDRESS;
   lldb::addr_t cmd_ptr = LLDB_INVALID_ADDRESS;
 
@@ -942,14 +1047,22 @@ bool ClangUserExpression::AddArguments(ExecutionContext &exe_ctx,
   } else {
     args.push_back(struct_address);
   }
+#else
+  args.push_back(struct_address);
+#endif
   return true;
 }
 
 lldb::ExpressionVariableSP ClangUserExpression::GetResultAfterDematerialization(
     ExecutionContextScope *exe_scope) {
+#if CONSOLE_LOG_SAVER
   return m_result_delegate.GetVariable();
+#else
+  return nullptr;
+#endif
 }
 
+#if CONSOLE_LOG_SAVER
 char ClangUserExpression::ClangUserExpressionHelper::ID;
 
 void ClangUserExpression::ClangUserExpressionHelper::ResetDeclMap(
@@ -1001,3 +1114,4 @@ void ClangUserExpression::ResultDelegate::RegisterPersistentState(
 lldb::ExpressionVariableSP &ClangUserExpression::ResultDelegate::GetVariable() {
   return m_variable;
 }
+#endif

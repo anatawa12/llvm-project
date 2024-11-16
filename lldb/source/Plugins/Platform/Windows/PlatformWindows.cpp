@@ -137,6 +137,7 @@ Status PlatformWindows::ConnectRemote(Args &args) {
         "can't connect to the host platform '{0}', always connected",
         GetPluginName());
   } else {
+#if CONSOLE_LOG_SAVER
     if (!m_remote_platform_sp)
       m_remote_platform_sp =
           platform_gdb_server::PlatformRemoteGDBServer::CreateInstance(
@@ -157,6 +158,10 @@ Status PlatformWindows::ConnectRemote(Args &args) {
 
     if (error.Fail())
       m_remote_platform_sp.reset();
+#else
+    error = Status::FromErrorString(
+        "disabled 'remote-gdb-server' platform");
+#endif
   }
 
   return error;

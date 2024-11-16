@@ -521,6 +521,11 @@ enum LanguageType {
   eLanguageTypeMipsAssembler, ///< Mips_Assembler.
   // Mojo will move to the common list of languages once the DWARF committee
   // creates a language code for it.
+#ifndef CONSOLE_LOG_SAVER
+  // The console log saver fork internal language that
+  // is simply a wrapper around llvm API
+  eLanguageTypeMiniLLVM,
+#endif
   eNumLanguageTypes
 };
 

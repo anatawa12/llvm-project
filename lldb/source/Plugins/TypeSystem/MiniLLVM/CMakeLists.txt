@@ -1,5 +1,5 @@
-add_lldb_library(lldbPluginTypeSystemClang PLUGIN
-  TypeSystemClang.cpp
+add_lldb_library(lldbPluginTypeSystemMiniLLVM PLUGIN
+  TypeSystemMiniLLVM.cpp
 
   LINK_LIBS
     lldbCore
@@ -7,7 +7,7 @@ add_lldb_library(lldbPluginTypeSystemClang PLUGIN
     lldbTarget
     lldbUtility
     lldbPluginExpressionParserClang
-    #lldbPluginSymbolFileDWARF
+    lldbPluginSymbolFileDWARF
     lldbPluginSymbolFilePDB
     lldbPluginObjCRuntime
   CLANG_LIBS

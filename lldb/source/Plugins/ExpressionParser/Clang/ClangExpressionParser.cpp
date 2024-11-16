@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if CONSOLE_LOG_SAVER
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTDiagnostic.h"
 #include "clang/AST/ExternalASTSource.h"
@@ -806,12 +807,14 @@ ClangExpressionParser::ClangExpressionParser(
 
   // 4. Set language options.
   SetupLangOpts(*m_compiler, *exe_scope, expr);
+#if CONSOLE_LOG_SAVER
   auto *clang_expr = dyn_cast<ClangUserExpression>(&m_expr);
   if (clang_expr && clang_expr->DidImportCxxModules()) {
     LLDB_LOG(log, "Adding lang options for importing C++ modules");
     SetupImportStdModuleLangOpts(*m_compiler, *target_sp);
     SetupModuleHeaderPaths(m_compiler.get(), m_include_directories, target_sp);
   }
+#endif
 
   // Set CodeGen options
   m_compiler->getCodeGenOpts().EmitDeclMetadata = true;
@@ -836,7 +839,11 @@ ClangExpressionParser::ClangExpressionParser(
   // 5. Set up the diagnostic buffer for reporting errors
   auto diag_mgr = new ClangDiagnosticManagerAdapter(
       m_compiler->getDiagnostics().getDiagnosticOptions(),
+#if CONSOLE_LOG_SAVER
       clang_expr ? clang_expr->GetFilename() : StringRef());
+#else
+      StringRef());
+#endif
   m_compiler->getDiagnostics().setClient(diag_mgr);
 
   // 6. Set up the source management objects inside the compiler
@@ -1641,3 +1648,4 @@ lldb_private::Status ClangExpressionParser::DoPrepareForExecution(
 
   return err;
 }
+#endif

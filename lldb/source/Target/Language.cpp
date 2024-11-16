@@ -246,6 +246,9 @@ struct language_name_pair language_names[] = {
     {"mojo", eLanguageTypeMojo},
     // Vendor Extensions
     {"assembler", eLanguageTypeMipsAssembler},
+#ifndef CONSOLE_LOG_SAVER
+    {"mini LLVM", eLanguageTypeMiniLLVM},
+#endif
     // Now synonyms, in arbitrary order
     {"objc", eLanguageTypeObjC},
     {"objc++", eLanguageTypeObjC_plus_plus},

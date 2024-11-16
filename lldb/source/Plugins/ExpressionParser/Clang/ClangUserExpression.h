@@ -49,6 +49,7 @@ public:
   }
   static bool classof(const Expression *obj) { return obj->isA(&ID); }
 
+#if CONSOLE_LOG_SAVER
   enum { kDefaultTimeout = 500000u };
 
   class ClangUserExpressionHelper
@@ -95,6 +96,7 @@ public:
     std::unique_ptr<ASTResultSynthesizer> m_result_synthesizer_up;
     bool m_top_level;
   };
+#endif
 
   /// Constructor
   ///
@@ -152,13 +154,16 @@ public:
              lldb_private::ExecutionPolicy execution_policy,
              bool keep_result_in_memory, bool generate_debug_info) override;
 
+#if CONSOLE_LOG_SAVER
   bool Complete(ExecutionContext &exe_ctx, CompletionRequest &request,
                 unsigned complete_pos) override;
+#endif
 
   ExpressionTypeSystemHelper *GetTypeSystemHelper() override {
     return &m_type_system_helper;
   }
 
+#if CONSOLE_LOG_SAVER
   ClangExpressionDeclMap *DeclMap() { return m_type_system_helper.DeclMap(); }
 
   void ResetDeclMap() { m_type_system_helper.ResetDeclMap(); }
@@ -170,14 +175,17 @@ public:
                                       keep_result_in_memory,
                                       m_ctx_obj);
   }
+#endif
 
   lldb::ExpressionVariableSP
   GetResultAfterDematerialization(ExecutionContextScope *exe_scope) override;
 
+#if CONSOLE_LOG_SAVER
   /// Returns true iff this expression is using any imported C++ modules.
   bool DidImportCxxModules() const { return !m_imported_cpp_modules.empty(); }
 
   llvm::StringRef GetFilename() const { return m_filename; }
+#endif
 
 private:
   /// Populate m_in_cplusplus_method and m_in_objectivec_method based on the
@@ -191,8 +199,10 @@ private:
                 lldb_private::ExecutionPolicy execution_policy,
                 bool keep_result_in_memory, bool generate_debug_info);
 
+#if CONSOLE_LOG_SAVER
   void SetupCppModuleImports(ExecutionContext &exe_ctx);
 
+#endif
   void ScanContext(ExecutionContext &exe_ctx,
                    lldb_private::Status &err) override;
 
@@ -200,6 +210,7 @@ private:
                     lldb::addr_t struct_address,
                     DiagnosticManager &diagnostic_manager) override;
 
+#if CONSOLE_LOG_SAVER
   void CreateSourceCode(DiagnosticManager &diagnostic_manager,
                         ExecutionContext &exe_ctx,
                         std::vector<std::string> modules_to_import,
@@ -207,16 +218,25 @@ private:
 
   lldb::addr_t GetCppObjectPointer(lldb::StackFrameSP frame,
                                    llvm::StringRef object_name, Status &err);
+#endif
 
+#if CONSOLE_LOG_SAVER
   /// Defines how the current expression should be wrapped.
   ClangExpressionSourceCode::WrapKind GetWrapKind() const;
   bool SetupPersistentState(DiagnosticManager &diagnostic_manager,
                                    ExecutionContext &exe_ctx);
+#endif
   bool PrepareForParsing(DiagnosticManager &diagnostic_manager,
                          ExecutionContext &exe_ctx, bool for_completion);
 
-  ClangUserExpressionHelper m_type_system_helper;
 
+#if CONSOLE_LOG_SAVER
+  ClangUserExpressionHelper m_type_system_helper;
+#else
+  ExpressionTypeSystemHelper m_type_system_helper;
+#endif
+
+#if CONSOLE_LOG_SAVER
   class ResultDelegate : public Materializer::PersistentVariableDelegate {
   public:
     ResultDelegate(lldb::TargetSP target) : m_target_sp(target) {}
@@ -271,6 +291,9 @@ private:
   /// True if "this" or "self" must be looked up and passed in.  False if the
   /// expression doesn't really use them and they can be NULL.
   bool m_needs_object_ptr = false;
+#else
+  lldb::addr_t m_target_func_addr;
+#endif
 };
 
 } // namespace lldb_private

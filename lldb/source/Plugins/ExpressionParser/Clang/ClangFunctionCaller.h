@@ -21,6 +21,9 @@
 namespace lldb_private {
 
 class ASTStructExtractor;
+#if !CONSOLE_LOG_SAVER
+class ClangFunctionCallerExpressionParser;
+#endif
 
 /// \class ClangFunctionCaller ClangFunctionCaller.h
 /// "lldb/Expression/ClangFunctionCaller.h" Encapsulates a function that can
@@ -56,6 +59,10 @@ class ASTStructExtractor;
 /// argument space will be managed for you.
 class ClangFunctionCaller : public FunctionCaller {
   friend class ASTStructExtractor;
+
+#if !CONSOLE_LOG_SAVER
+  friend ClangFunctionCallerExpressionParser;
+#endif
 
   class ClangFunctionCallerHelper
       : public llvm::RTTIExtends<ClangFunctionCallerHelper,
