@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "ASTStructExtractor.h"
 
 #include "lldb/Utility/Log.h"
@@ -181,3 +182,4 @@ void ASTStructExtractor::ForgetSema() {
   if (m_passthrough_sema)
     m_passthrough_sema->ForgetSema();
 }
+#endif // CONSOLE_LOG_SAVER

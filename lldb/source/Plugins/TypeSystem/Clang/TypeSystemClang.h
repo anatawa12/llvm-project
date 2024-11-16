@@ -619,9 +619,11 @@ public:
   static clang::NamespaceDecl *
   DeclContextGetAsNamespaceDecl(const CompilerDeclContext &dc);
 
+#ifdef CONSOLE_LOG_SAVER
   static std::optional<ClangASTMetadata>
   DeclContextGetMetaData(const CompilerDeclContext &dc,
                          const clang::Decl *object);
+#endif
 
   static clang::ASTContext *
   DeclContextGetTypeSystemClang(const CompilerDeclContext &dc);

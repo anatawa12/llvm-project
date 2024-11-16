@@ -183,8 +183,12 @@ ClangFunctionCaller::ClangFunctionCaller(ExecutionContextScope &exe_scope,
                                          const ValueList &arg_value_list,
                                          const char *name)
     : FunctionCaller(exe_scope, return_type, functionAddress, arg_value_list,
+#ifdef CONSOLE_LOG_SAVER
                      name),
       m_type_system_helper(*this) {
+#else
+                     name) {
+#endif
   m_jit_process_wp = lldb::ProcessWP(exe_scope.CalculateProcess());
   // Can't make a ClangFunctionCaller without a process.
   assert(m_jit_process_wp.lock());
@@ -425,6 +429,7 @@ ClangFunctionCaller::CompileFunction(lldb::ThreadSP thread_to_use_sp,
   return num_errors;
 }
 
+#ifdef CONSOLE_LOG_SAVER
 char ClangFunctionCaller::ClangFunctionCallerHelper::ID;
 
 clang::ASTConsumer *
@@ -435,3 +440,4 @@ ClangFunctionCaller::ClangFunctionCallerHelper::ASTTransformer(
 
   return m_struct_extractor.get();
 }
+#endif

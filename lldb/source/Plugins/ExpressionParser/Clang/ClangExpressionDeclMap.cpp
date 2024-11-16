@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "ClangExpressionDeclMap.h"
 
 #include "ClangASTSource.h"
@@ -2044,3 +2045,4 @@ void ClangExpressionDeclMap::AddOneType(NameSearchContext &context,
 
   context.AddTypeDecl(copied_clang_type);
 }
+#endif // CONSOLE_LOG_SAVER

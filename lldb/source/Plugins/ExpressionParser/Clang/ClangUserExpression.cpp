@@ -85,7 +85,6 @@ ClangUserExpression::ClangUserExpression(
       
       m_result_delegate(exe_scope.CalculateTarget()), m_ctx_obj(ctx_obj) {
 #else
-      m_type_system_helper(),
       m_target_func_addr(LLDB_INVALID_ADDRESS) {
 #endif
   switch (m_language.name) {

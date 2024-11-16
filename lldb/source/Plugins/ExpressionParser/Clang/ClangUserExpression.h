@@ -157,13 +157,11 @@ public:
 #if CONSOLE_LOG_SAVER
   bool Complete(ExecutionContext &exe_ctx, CompletionRequest &request,
                 unsigned complete_pos) override;
-#endif
 
   ExpressionTypeSystemHelper *GetTypeSystemHelper() override {
     return &m_type_system_helper;
   }
 
-#if CONSOLE_LOG_SAVER
   ClangExpressionDeclMap *DeclMap() { return m_type_system_helper.DeclMap(); }
 
   void ResetDeclMap() { m_type_system_helper.ResetDeclMap(); }
@@ -232,8 +230,6 @@ private:
 
 #if CONSOLE_LOG_SAVER
   ClangUserExpressionHelper m_type_system_helper;
-#else
-  ExpressionTypeSystemHelper m_type_system_helper;
 #endif
 
 #if CONSOLE_LOG_SAVER

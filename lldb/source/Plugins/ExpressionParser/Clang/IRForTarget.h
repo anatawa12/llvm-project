@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #ifndef LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_IRFORTARGET_H
 #define LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_IRFORTARGET_H
 
@@ -390,3 +391,4 @@ private:
 };
 
 #endif // LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_IRFORTARGET_H
+#endif // CONSOLE_LOG_SAVER

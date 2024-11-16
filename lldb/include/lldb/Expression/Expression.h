@@ -78,7 +78,9 @@ public:
   /// Called to notify the expression that its execution has finished.
   virtual void DidFinishExecuting() {}
 
+#ifdef CONSOLE_LOG_SAVER
   virtual ExpressionTypeSystemHelper *GetTypeSystemHelper() { return nullptr; }
+#endif
 
   // LLVM RTTI support
   virtual bool isA(const void *ClassID) const = 0;

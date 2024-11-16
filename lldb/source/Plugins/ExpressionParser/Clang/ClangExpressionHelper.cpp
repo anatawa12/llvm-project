@@ -6,8 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "ClangExpressionHelper.h"
 
 using namespace lldb_private;
 
 char ClangExpressionHelper::ID;
+#endif

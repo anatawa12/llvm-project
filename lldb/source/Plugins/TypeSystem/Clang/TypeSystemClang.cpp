@@ -54,6 +54,7 @@
 #include "Plugins/ExpressionParser/Clang/ClangUserExpression.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtilityFunction.h"
+#include "Plugins/ExpressionParser/Clang/ClangASTSource.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/DumpDataExtractor.h"
 #include "lldb/Core/Module.h"
@@ -9608,12 +9609,14 @@ TypeSystemClang::DeclContextGetAsNamespaceDecl(const CompilerDeclContext &dc) {
   return nullptr;
 }
 
+#ifdef CONSOLE_LOG_SAVER
 std::optional<ClangASTMetadata>
 TypeSystemClang::DeclContextGetMetaData(const CompilerDeclContext &dc,
                                         const Decl *object) {
   TypeSystemClang *ast = llvm::cast<TypeSystemClang>(dc.GetTypeSystem());
   return ast->GetMetadata(object);
 }
+#endif // CONSOLE_LOG_SAVER
 
 clang::ASTContext *
 TypeSystemClang::DeclContextGetTypeSystemClang(const CompilerDeclContext &dc) {

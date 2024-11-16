@@ -64,6 +64,7 @@ class ClangFunctionCaller : public FunctionCaller {
   friend ClangFunctionCallerExpressionParser;
 #endif
 
+#ifdef CONSOLE_LOG_SAVER
   class ClangFunctionCallerHelper
       : public llvm::RTTIExtends<ClangFunctionCallerHelper,
                                  ClangExpressionHelper> {
@@ -93,6 +94,7 @@ class ClangFunctionCaller : public FunctionCaller {
                                                             ///argument struct
                                                             ///layout.
   };
+#endif
 
   // LLVM RTTI support
   static char ID;
@@ -141,9 +143,11 @@ public:
   unsigned CompileFunction(lldb::ThreadSP thread_to_use_sp,
                            DiagnosticManager &diagnostic_manager) override;
 
+#ifdef CONSOLE_LOG_SAVER
   ExpressionTypeSystemHelper *GetTypeSystemHelper() override {
     return &m_type_system_helper;
   }
+#endif
 
 protected:
   const char *GetWrapperStructName() { return m_wrapper_struct_name.c_str(); }
@@ -151,9 +155,11 @@ protected:
 private:
   // For ClangFunctionCaller only
 
+#ifdef CONSOLE_LOG_SAVER
   // Note: the parser needs to be destructed before the execution unit, so
   // declare the execution unit first.
   ClangFunctionCallerHelper m_type_system_helper;
+#endif
 };
 
 } // namespace lldb_private

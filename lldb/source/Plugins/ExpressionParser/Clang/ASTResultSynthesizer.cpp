@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "ASTResultSynthesizer.h"
 
 #include "ClangASTImporter.h"
@@ -514,3 +515,4 @@ void ASTResultSynthesizer::ForgetSema() {
   if (m_passthrough_sema)
     m_passthrough_sema->ForgetSema();
 }
+#endif

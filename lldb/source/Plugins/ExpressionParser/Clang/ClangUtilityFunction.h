@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #ifndef LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGUTILITYFUNCTION_H
 #define LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGUTILITYFUNCTION_H
 
@@ -111,3 +112,4 @@ private:
 } // namespace lldb_private
 
 #endif // LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGUTILITYFUNCTION_H
+#endif

@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "IRForTarget.h"
 
 #include "ClangExpressionDeclMap.h"
@@ -1766,3 +1767,4 @@ bool IRForTarget::runOnModule(Module &llvm_module) {
 
   return true;
 }
+#endif // CONSOLE_LOG_SAVER

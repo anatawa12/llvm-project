@@ -25,6 +25,7 @@
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/Stream.h"
 
+#ifdef CONSOLE_LOG_SAVER
 using namespace lldb_private;
 
 char ClangUtilityFunction::ID;
@@ -189,3 +190,4 @@ void ClangUtilityFunction::ClangUtilityFunctionHelper::ResetDeclMap(
       keep_result_in_memory, nullptr, exe_ctx.GetTargetSP(), ast_importer,
       nullptr);
 }
+#endif

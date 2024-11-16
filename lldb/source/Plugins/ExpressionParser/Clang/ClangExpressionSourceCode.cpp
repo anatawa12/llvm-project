@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "ClangExpressionSourceCode.h"
 
 #include "ClangExpressionUtil.h"
@@ -527,3 +528,4 @@ bool ClangExpressionSourceCode::GetOriginalBodyBounds(
   end_loc = transformed_text.find(m_end_marker);
   return end_loc != std::string::npos;
 }
+#endif // CONSOLE_LOG_SAVER
