@@ -8,7 +8,7 @@ add_lldb_library(lldbPluginTypeSystemClang PLUGIN
     lldbUtility
     lldbPluginExpressionParserClang
     #lldbPluginSymbolFileDWARF
-    lldbPluginSymbolFilePDB
+    #lldbPluginSymbolFilePDB
     lldbPluginObjCRuntime
   CLANG_LIBS
     clangAST

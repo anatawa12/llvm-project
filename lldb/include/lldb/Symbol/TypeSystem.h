@@ -88,10 +88,8 @@ public:
 
   virtual plugin::dwarf::DWARFASTParser *GetDWARFParser() { return nullptr; }
 
-#if CONSOLE_LOG_SAVER_OSX || _WIN32
   virtual PDBASTParser *GetPDBParser() { return nullptr; }
   virtual npdb::PdbAstBuilder *GetNativePDBParser() { return nullptr; }
-#endif
 
   virtual SymbolFile *GetSymbolFile() const { return m_sym_file; }
 

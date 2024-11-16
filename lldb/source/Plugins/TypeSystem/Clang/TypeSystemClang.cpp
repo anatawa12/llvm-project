@@ -909,6 +909,7 @@ CompilerType TypeSystemClang::GetBasicType(lldb::BasicType basic_type) {
   return CompilerType();
 }
 
+#ifdef CONSOLE_LOG_SAVER
 CompilerType TypeSystemClang::GetBuiltinTypeForDWARFEncodingAndBitSize(
     llvm::StringRef type_name, uint32_t dw_ate, uint32_t bit_size) {
   ASTContext &ast = getASTContext();
@@ -1129,6 +1130,7 @@ CompilerType TypeSystemClang::GetBuiltinTypeForDWARFEncodingAndBitSize(
            type_name, dw_ate, bit_size);
   return CompilerType();
 }
+#endif
 
 CompilerType TypeSystemClang::GetCStringType(bool is_const) {
   ASTContext &ast = getASTContext();
@@ -9076,17 +9078,13 @@ void TypeSystemClang::CompleteObjCInterfaceDecl(
   }
 }
 
+#if CONSOLE_LOG_SAVER
 DWARFASTParser *TypeSystemClang::GetDWARFParser() {
-#ifndef CONSOLE_LOG_SAVER
-  return nullptr;
-#else
   if (!m_dwarf_ast_parser_up)
     m_dwarf_ast_parser_up = std::make_unique<DWARFASTParserClang>(*this);
   return m_dwarf_ast_parser_up.get();
-#endif
 }
 
-#if CONSOLE_LOG_SAVER || _WIN32
 PDBASTParser *TypeSystemClang::GetPDBParser() {
   if (!m_pdb_ast_parser_up)
     m_pdb_ast_parser_up = std::make_unique<PDBASTParser>(*this);
@@ -9109,9 +9107,9 @@ bool TypeSystemClang::LayoutRecordType(
     llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
         &vbase_offsets) {
   lldb_private::ClangASTImporter *importer = nullptr;
+#if CONSOLE_LOG_SAVER
   if (m_dwarf_ast_parser_up)
     importer = &m_dwarf_ast_parser_up->GetClangASTImporter();
-#if CONSOLE_LOG_SAVER || _WIN32
   if (!importer && m_pdb_ast_parser_up)
     importer = &m_pdb_ast_parser_up->GetClangASTImporter();
   if (!importer && m_native_pdb_ast_parser_up)

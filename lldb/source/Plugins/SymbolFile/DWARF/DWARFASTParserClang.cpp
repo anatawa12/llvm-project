@@ -6,6 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
+
 #include <cstdlib>
 
 #include "DWARFASTParser.h"
@@ -3847,3 +3849,4 @@ void DWARFASTParserClang::ParseRustVariantPart(
 
   layout_info.field_offsets.insert({inner_field, 0});
 }
+#endif

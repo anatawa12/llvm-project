@@ -41,6 +41,8 @@ class SymbolFileDWARF;
 
 struct ParsedDWARFTypeAttributes;
 
+#ifdef CONSOLE_LOG_SAVER
+
 class DWARFASTParserClang : public lldb_private::plugin::dwarf::DWARFASTParser {
 public:
   DWARFASTParserClang(lldb_private::TypeSystemClang &ast);
@@ -572,5 +574,7 @@ struct ParsedDWARFTypeAttributes {
                       ///< C++ member function if present.
                       ///< Is RQ_None otherwise.
 };
+
+#endif
 
 #endif // LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFASTPARSERCLANG_H

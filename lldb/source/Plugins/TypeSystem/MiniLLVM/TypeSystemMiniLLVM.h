@@ -40,9 +40,6 @@
 #include "lldb/Utility/Log.h"
 #include "lldb/lldb-enumerations.h"
 
-class DWARFASTParserClang;
-class PDBASTParser;
-
 namespace clang {
 class FileManager;
 class HeaderSearch;
@@ -209,10 +206,6 @@ public:
   CompilerType GetBasicType(lldb::BasicType type);
 
   static lldb::BasicType GetBasicTypeEnumeration(llvm::StringRef name);
-
-  CompilerType
-  GetBuiltinTypeForDWARFEncodingAndBitSize(llvm::StringRef type_name,
-                                           uint32_t dw_ate, uint32_t bit_size);
 
   CompilerType GetCStringType(bool is_const);
 
@@ -520,11 +513,6 @@ public:
                                               size_t bit_size);
 
   // TypeSystem methods
-  plugin::dwarf::DWARFASTParser *GetDWARFParser() override;
-#if _WIN32
-  PDBASTParser *GetPDBParser() override;
-  npdb::PdbAstBuilder *GetNativePDBParser() override;
-#endif
 
   // TypeSystemMiniLLVM callbacks for external source lookups.
   void CompleteTagDecl(clang::TagDecl *);
@@ -1193,11 +1181,6 @@ private:
   std::unique_ptr<clang::Builtin::Context> m_builtins_up;
   std::unique_ptr<clang::HeaderSearch> m_header_search_up;
   std::unique_ptr<clang::ModuleMap> m_module_map_up;
-  std::unique_ptr<DWARFASTParserClang> m_dwarf_ast_parser_up;
-#if _WIN32
-  std::unique_ptr<PDBASTParser> m_pdb_ast_parser_up;
-  std::unique_ptr<npdb::PdbAstBuilder> m_native_pdb_ast_parser_up;
-#endif
   std::unique_ptr<clang::MangleContext> m_mangle_ctx_up;
   uint32_t m_pointer_byte_size = 0;
   bool m_ast_owned = false;

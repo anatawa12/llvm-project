@@ -94,6 +94,7 @@ void DWARFExpression::SetRegisterKind(RegisterKind reg_kind) {
   m_reg_kind = reg_kind;
 }
 
+#if CONSOLE_LOG_SAVER
 static llvm::Error ReadRegisterValueAsScalar(RegisterContext *reg_ctx,
                                              lldb::RegisterKind reg_kind,
                                              uint32_t reg_num, Value &value) {
@@ -127,6 +128,7 @@ static llvm::Error ReadRegisterValueAsScalar(RegisterContext *reg_ctx,
   return llvm::createStringError("register %s is not available",
                                  reg_info->name);
 }
+#endif
 
 /// Return the length in bytes of the set of operands for \p op. No guarantees
 /// are made on the state of \p data after this call.
@@ -529,6 +531,7 @@ bool DWARFExpression::LinkThreadLocalStorage(
   return true;
 }
 
+#if CONSOLE_LOG_SAVER
 static llvm::Error Evaluate_DW_OP_entry_value(std::vector<Value> &stack,
                                               ExecutionContext *exe_ctx,
                                               RegisterContext *reg_ctx,
@@ -819,12 +822,17 @@ static Scalar DerefSizeExtractDataHelper(uint8_t *addr_bytes,
   else
     return addr_data.GetAddress(&addr_data_offset);
 }
+#endif
 
 llvm::Expected<Value> DWARFExpression::Evaluate(
     ExecutionContext *exe_ctx, RegisterContext *reg_ctx,
     lldb::ModuleSP module_sp, const DataExtractor &opcodes,
     const DWARFUnit *dwarf_cu, const lldb::RegisterKind reg_kind,
     const Value *initial_value_ptr, const Value *object_address_ptr) {
+#ifndef CONSOLE_LOG_SAVER
+  return llvm::createStringError(
+      "no location, value may have been optimized out");
+#else
 
   if (opcodes.GetByteSize() == 0)
     return llvm::createStringError(
@@ -2285,6 +2293,7 @@ llvm::Expected<Value> DWARFExpression::Evaluate(
     }
   }
   return stack.back();
+#endif
 }
 
 bool DWARFExpression::ParseDWARFLocationList(

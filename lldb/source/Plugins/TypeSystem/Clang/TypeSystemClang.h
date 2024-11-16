@@ -210,9 +210,11 @@ public:
 
   static lldb::BasicType GetBasicTypeEnumeration(llvm::StringRef name);
 
+#ifdef CONSOLE_LOG_SAVER
   CompilerType
   GetBuiltinTypeForDWARFEncodingAndBitSize(llvm::StringRef type_name,
                                            uint32_t dw_ate, uint32_t bit_size);
+#endif
 
   CompilerType GetCStringType(bool is_const);
 
@@ -520,8 +522,8 @@ public:
                                               size_t bit_size);
 
   // TypeSystem methods
+#if CONSOLE_LOG_SAVER
   plugin::dwarf::DWARFASTParser *GetDWARFParser() override;
-#if CONSOLE_LOG_SAVER_OSX
   PDBASTParser *GetPDBParser() override;
   npdb::PdbAstBuilder *GetNativePDBParser() override;
 #endif
@@ -1193,8 +1195,8 @@ private:
   std::unique_ptr<clang::Builtin::Context> m_builtins_up;
   std::unique_ptr<clang::HeaderSearch> m_header_search_up;
   std::unique_ptr<clang::ModuleMap> m_module_map_up;
+#if CONSOLE_LOG_SAVER
   std::unique_ptr<DWARFASTParserClang> m_dwarf_ast_parser_up;
-#if CONSOLE_LOG_SAVER_OSX || _WIN32
   std::unique_ptr<PDBASTParser> m_pdb_ast_parser_up;
   std::unique_ptr<npdb::PdbAstBuilder> m_native_pdb_ast_parser_up;
 #endif
