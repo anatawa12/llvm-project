@@ -275,6 +275,9 @@ class TypeSummaryImpl;
 class TypeSummaryOptions;
 class TypeSystem;
 class TypeSystemClang;
+#ifndef CONSOLE_LOG_SAVER
+class TypeSystemMiniLLVM;
+#endif
 class UUID;
 class UnixSignals;
 class Unwind;
@@ -468,6 +471,9 @@ typedef std::shared_ptr<lldb_private::TypeEnumMemberImpl> TypeEnumMemberImplSP;
 typedef std::shared_ptr<lldb_private::TypeFilterImpl> TypeFilterImplSP;
 typedef std::shared_ptr<lldb_private::TypeSystem> TypeSystemSP;
 typedef std::shared_ptr<lldb_private::TypeSystemClang> TypeSystemClangSP;
+#ifndef CONSOLE_LOG_SAVER
+typedef std::shared_ptr<lldb_private::TypeSystemMiniLLVM> TypeSystemMiniLLVMSP;
+#endif
 typedef std::weak_ptr<lldb_private::TypeSystem> TypeSystemWP;
 typedef std::shared_ptr<lldb_private::TypeFormatImpl> TypeFormatImplSP;
 typedef std::shared_ptr<lldb_private::TypeNameSpecifierImpl>
