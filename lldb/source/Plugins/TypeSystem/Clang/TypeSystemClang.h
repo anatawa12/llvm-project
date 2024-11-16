@@ -1336,7 +1336,9 @@ public:
   static bool classof(const TypeSystem *ts) { return ts->isA(&ID); }
 
 private:
+#ifdef CONSOLE_LOG_SAVER
   std::unique_ptr<ClangASTSource> CreateASTSource();
+#endif
   /// Returns the requested sub-AST.
   /// Will lazily create the sub-AST if it hasn't been created before.
   TypeSystemClang &GetIsolatedAST(IsolatedASTKind feature);
@@ -1349,9 +1351,11 @@ private:
   /// The persistent variables associated with this process for the expression
   /// parser.
   std::unique_ptr<ClangPersistentVariables> m_persistent_variables;
+#ifdef CONSOLE_LOG_SAVER
   /// The ExternalASTSource that performs lookups and completes minimally
   /// imported types.
   std::unique_ptr<ClangASTSource> m_scratch_ast_source_up;
+#endif
 
   // FIXME: GCC 5.x doesn't support enum as map keys.
   typedef int IsolatedASTKey;

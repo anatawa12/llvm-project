@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "ClangASTSource.h"
 
 #include "ClangDeclVendor.h"
@@ -1514,3 +1515,4 @@ ClangASTSource::GetClangModulesDeclVendor() {
       m_target->GetPersistentExpressionStateForLanguage(lldb::eLanguageTypeC));
   return persistent_vars->GetClangModulesDeclVendor();
 }
+#endif // CONSOLE_LOG_SAVER

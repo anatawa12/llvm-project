@@ -9662,9 +9662,10 @@ public:
   /// \param triple The triple used for the TypeSystemClang instance.
   /// \param ast_source The ClangASTSource that should be used to complete
   ///                   type information.
+#ifdef CONSOLE_LOG_SAVER
   SpecializedScratchAST(llvm::StringRef name, llvm::Triple triple,
                         std::unique_ptr<ClangASTSource> ast_source)
-      : TypeSystemClang(name, triple),
+      : TypeSystemClang(name, triple)
         m_scratch_ast_source_up(std::move(ast_source)) {
     // Setup the ClangASTSource to complete this AST.
     m_scratch_ast_source_up->InstallASTContext(*this);
@@ -9672,9 +9673,16 @@ public:
         m_scratch_ast_source_up->CreateProxy());
     SetExternalSource(proxy_ast_source);
   }
+#else
+  SpecializedScratchAST(llvm::StringRef name, llvm::Triple triple)
+      : TypeSystemClang(name, triple) {
+  }
+#endif
 
+#ifdef CONSOLE_LOG_SAVER
   /// The ExternalASTSource that performs lookups and completes types.
   std::unique_ptr<ClangASTSource> m_scratch_ast_source_up;
+#endif
 };
 } // namespace
 
@@ -9687,16 +9695,20 @@ ScratchTypeSystemClang::ScratchTypeSystemClang(Target &target,
       m_target_wp(target.shared_from_this()),
       m_persistent_variables(
           new ClangPersistentVariables(target.shared_from_this())) {
+#ifdef CONSOLE_LOG_SAVER
   m_scratch_ast_source_up = CreateASTSource();
   m_scratch_ast_source_up->InstallASTContext(*this);
   llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> proxy_ast_source(
       m_scratch_ast_source_up->CreateProxy());
   SetExternalSource(proxy_ast_source);
+#endif
 }
 
 void ScratchTypeSystemClang::Finalize() {
   TypeSystemClang::Finalize();
+#ifdef CONSOLE_LOG_SAVER
   m_scratch_ast_source_up.reset();
+#endif
 }
 
 TypeSystemClangSP
@@ -9817,11 +9829,13 @@ void ScratchTypeSystemClang::ForgetSource(ASTContext *src_ctx,
     importer.ForgetSource(&a.second->getASTContext(), src_ctx);
 }
 
+#ifdef CONSOLE_LOG_SAVER
 std::unique_ptr<ClangASTSource> ScratchTypeSystemClang::CreateASTSource() {
   return std::make_unique<ClangASTSource>(
       m_target_wp.lock()->shared_from_this(),
       m_persistent_variables->GetClangASTImporter());
 }
+#endif
 
 static llvm::StringRef
 GetSpecializedASTName(ScratchTypeSystemClang::IsolatedASTKind feature) {
@@ -9841,7 +9855,11 @@ TypeSystemClang &ScratchTypeSystemClang::GetIsolatedAST(
   // Couldn't find the requested sub-AST, so create it now.
   std::shared_ptr<TypeSystemClang> new_ast_sp =
       std::make_shared<SpecializedScratchAST>(GetSpecializedASTName(feature),
+#ifdef CONSOLE_LOG_SAVER
                                               m_triple, CreateASTSource());
+#else
+                                              m_triple);
+#endif
   m_isolated_asts.insert({feature, new_ast_sp});
   return *new_ast_sp;
 }
