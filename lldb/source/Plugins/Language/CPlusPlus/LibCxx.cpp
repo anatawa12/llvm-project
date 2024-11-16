@@ -117,6 +117,9 @@ bool lldb_private::formatters::LibcxxFunctionSummaryProvider(
   if (process == nullptr)
     return false;
 
+#ifndef CONSOLE_LOG_SAVER
+  return false;
+#else
   CPPLanguageRuntime *cpp_runtime = CPPLanguageRuntime::Get(*process);
 
   if (!cpp_runtime)
@@ -149,6 +152,7 @@ bool lldb_private::formatters::LibcxxFunctionSummaryProvider(
   }
 
   return true;
+#endif
 }
 
 bool lldb_private::formatters::LibcxxSmartPointerSummaryProvider(

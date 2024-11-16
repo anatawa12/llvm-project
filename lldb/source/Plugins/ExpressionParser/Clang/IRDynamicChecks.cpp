@@ -57,6 +57,7 @@ llvm::Error ClangDynamicCheckerFunctions::Install(
     return utility_fn.takeError();
   m_valid_pointer_check = std::move(*utility_fn);
 
+#ifdef CONSOLE_LOG_SAVER
   if (Process *process = exe_ctx.GetProcessPtr()) {
     ObjCLanguageRuntime *objc_language_runtime =
         ObjCLanguageRuntime::Get(*process);
@@ -69,6 +70,7 @@ llvm::Error ClangDynamicCheckerFunctions::Install(
       m_objc_object_check = std::move(*checker_fn);
     }
   }
+#endif
 
   return Error::success();
 }

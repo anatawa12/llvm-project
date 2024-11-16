@@ -1,4 +1,4 @@
-add_lldb_library(lldbPluginCPlusPlusLanguage PLUGIN
+add_lldb_library(lldbPluginCPlusPlusLanguage #PLUGIN
   BlockPointer.cpp
   Coroutines.cpp
   CPlusPlusLanguage.cpp

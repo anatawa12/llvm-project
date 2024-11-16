@@ -602,6 +602,7 @@ addr_t ClangExpressionDeclMap::GetSymbolAddress(Target &target,
     }
   }
 
+#ifdef CONSOLE_LOG_SAVER
   if (symbol_load_addr == LLDB_INVALID_ADDRESS && process) {
     ObjCLanguageRuntime *runtime = ObjCLanguageRuntime::Get(*process);
 
@@ -609,6 +610,7 @@ addr_t ClangExpressionDeclMap::GetSymbolAddress(Target &target,
       symbol_load_addr = runtime->LookupRuntimeSymbol(name);
     }
   }
+#endif 
 
   return symbol_load_addr;
 }

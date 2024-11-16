@@ -4778,12 +4778,14 @@ TypeSystemClang::GetObjCBitSize(QualType qual_type,
   assert(qual_type->isObjCObjectOrInterfaceType());
   ExecutionContext exe_ctx(exe_scope);
   if (Process *process = exe_ctx.GetProcessPtr()) {
+#ifdef CONSOLE_LOG_SAVER
     if (ObjCLanguageRuntime *objc_runtime =
             ObjCLanguageRuntime::Get(*process)) {
       if (std::optional<uint64_t> bit_size =
               objc_runtime->GetTypeBitSize(GetType(qual_type)))
         return *bit_size;
     }
+#endif
   } else {
     static bool g_printed = false;
     if (!g_printed) {
@@ -6445,6 +6447,7 @@ llvm::Expected<CompilerType> TypeSystemClang::GetChildCompilerTypeAtIndex(
                 if (exe_ctx)
                   process = exe_ctx->GetProcessPtr();
                 if (process) {
+#ifdef CONSOLE_LOG_SAVER
                   ObjCLanguageRuntime *objc_runtime =
                       ObjCLanguageRuntime::Get(*process);
                   if (objc_runtime != nullptr) {
@@ -6452,6 +6455,7 @@ llvm::Expected<CompilerType> TypeSystemClang::GetChildCompilerTypeAtIndex(
                     child_byte_offset = objc_runtime->GetByteOffsetForIvar(
                         parent_ast_type, ivar_decl->getNameAsString().c_str());
                   }
+#endif
                 }
 
                 // Setting this to INT32_MAX to make sure we don't compute it

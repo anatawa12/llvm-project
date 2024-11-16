@@ -4540,12 +4540,6 @@ TypeSystemMiniLLVM::GetObjCBitSize(QualType qual_type,
   assert(qual_type->isObjCObjectOrInterfaceType());
   ExecutionContext exe_ctx(exe_scope);
   if (Process *process = exe_ctx.GetProcessPtr()) {
-    if (ObjCLanguageRuntime *objc_runtime =
-            ObjCLanguageRuntime::Get(*process)) {
-      if (std::optional<uint64_t> bit_size =
-              objc_runtime->GetTypeBitSize(GetType(qual_type)))
-        return *bit_size;
-    }
   } else {
     static bool g_printed = false;
     if (!g_printed) {
@@ -6206,15 +6200,6 @@ llvm::Expected<CompilerType> TypeSystemMiniLLVM::GetChildCompilerTypeAtIndex(
                 Process *process = nullptr;
                 if (exe_ctx)
                   process = exe_ctx->GetProcessPtr();
-                if (process) {
-                  ObjCLanguageRuntime *objc_runtime =
-                      ObjCLanguageRuntime::Get(*process);
-                  if (objc_runtime != nullptr) {
-                    CompilerType parent_ast_type = GetType(parent_qual_type);
-                    child_byte_offset = objc_runtime->GetByteOffsetForIvar(
-                        parent_ast_type, ivar_decl->getNameAsString().c_str());
-                  }
-                }
 
                 // Setting this to INT32_MAX to make sure we don't compute it
                 // twice...

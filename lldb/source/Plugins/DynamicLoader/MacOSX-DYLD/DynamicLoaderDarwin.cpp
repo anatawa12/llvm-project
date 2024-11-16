@@ -792,6 +792,9 @@ bool DynamicLoaderDarwin::AddModulesUsingPreloadedModules(
 // of our normal default assumption that they are not.
 
 bool DynamicLoaderDarwin::AlwaysRelyOnEHUnwindInfo(SymbolContext &sym_ctx) {
+#ifndef CONSOLE_LOG_SAVER
+  return false;
+#else
   ModuleSP module_sp;
   if (sym_ctx.symbol) {
     module_sp = sym_ctx.symbol->GetAddressRef().GetModule();
@@ -806,6 +809,7 @@ bool DynamicLoaderDarwin::AlwaysRelyOnEHUnwindInfo(SymbolContext &sym_ctx) {
   ObjCLanguageRuntime *objc_runtime = ObjCLanguageRuntime::Get(*m_process);
   return objc_runtime != nullptr &&
          objc_runtime->IsModuleObjCLibrary(module_sp);
+#endif
 }
 
 // Dump a Segment to the file handle provided.

@@ -295,6 +295,7 @@ void ManualDWARFIndex::IndexUnitImpl(DWARFUnit &unit,
       if (has_address) {
         if (name) {
           bool is_objc_method = false;
+#ifdef CONSOLE_LOG_SAVER
           if (cu_language == eLanguageTypeObjC ||
               cu_language == eLanguageTypeObjC_plus_plus) {
             std::optional<const ObjCLanguage::MethodName> objc_method =
@@ -320,6 +321,7 @@ void ManualDWARFIndex::IndexUnitImpl(DWARFUnit &unit,
                                               ref);
             }
           }
+#endif
           // If we have a mangled name, then the DW_AT_name attribute is
           // usually the method name without the class or any parameters
           bool is_method = DWARFDIE(&unit, &die).IsMethod();

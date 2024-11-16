@@ -330,6 +330,9 @@ clang::ObjCInterfaceDecl *ClangASTSource::GetCompleteObjCInterface(
   if (!process)
     return nullptr;
 
+#ifndef CONSOLE_LOG_SAVER
+  return nullptr;
+#else
   ObjCLanguageRuntime *language_runtime(ObjCLanguageRuntime::Get(*process));
 
   if (!language_runtime)
@@ -362,6 +365,7 @@ clang::ObjCInterfaceDecl *ClangASTSource::GetCompleteObjCInterface(
   ObjCInterfaceDecl *complete_iface_decl(complete_interface_type->getDecl());
 
   return complete_iface_decl;
+#endif
 }
 
 void ClangASTSource::FindExternalLexicalDecls(
@@ -829,6 +833,7 @@ void ClangASTSource::FindDeclInModules(NameSearchContext &context,
 
 void ClangASTSource::FindDeclInObjCRuntime(NameSearchContext &context,
                                            ConstString name) {
+#ifdef CONSOLE_LOG_SAVER
   Log *log = GetLog(LLDBLog::Expressions);
 
   lldb::ProcessSP process(m_target->GetProcessSP());
@@ -868,6 +873,7 @@ void ClangASTSource::FindDeclInObjCRuntime(NameSearchContext &context,
   }
 
   context.AddNamedDecl(copied_named_decl);
+#endif
 }
 
 void ClangASTSource::FindObjCMethodDecls(NameSearchContext &context) {
@@ -1044,6 +1050,7 @@ void ClangASTSource::FindObjCMethodDecls(NameSearchContext &context) {
 
   // Try the debug information.
 
+#ifdef CONSOLE_LOG_SAVER
   do {
     ObjCInterfaceDecl *complete_interface_decl = GetCompleteObjCInterface(
         const_cast<ObjCInterfaceDecl *>(interface_decl));
@@ -1070,6 +1077,7 @@ void ClangASTSource::FindObjCMethodDecls(NameSearchContext &context) {
 
     return;
   } while (false);
+#endif
 
   do {
     // Check the modules only if the debug information didn't have a complete
@@ -1098,6 +1106,7 @@ void ClangASTSource::FindObjCMethodDecls(NameSearchContext &context) {
     }
   } while (false);
 
+#ifdef CONSOLE_LOG_SAVER
   do {
     // Check the runtime only if the debug information didn't have a complete
     // interface and the modules don't get us anywhere.
@@ -1107,6 +1116,7 @@ void ClangASTSource::FindObjCMethodDecls(NameSearchContext &context) {
     if (!process)
       break;
 
+    break;
     ObjCLanguageRuntime *language_runtime(ObjCLanguageRuntime::Get(*process));
 
     if (!language_runtime)
@@ -1136,6 +1146,7 @@ void ClangASTSource::FindObjCMethodDecls(NameSearchContext &context) {
     FindObjCMethodDeclsWithOrigin(context, runtime_interface_decl,
                                   "in runtime");
   } while (false);
+#endif
 }
 
 bool ClangASTSource::FindObjCPropertyAndIvarDeclsWithOrigin(
@@ -1215,6 +1226,7 @@ void ClangASTSource::FindObjCPropertyAndIvarDecls(NameSearchContext &context) {
   SymbolContext null_sc;
   TypeList type_list;
 
+#ifdef CONSOLE_LOG_SAVER
   do {
     ObjCInterfaceDecl *complete_interface_decl = GetCompleteObjCInterface(
         const_cast<ObjCInterfaceDecl *>(parser_iface_decl.decl));
@@ -1240,6 +1252,7 @@ void ClangASTSource::FindObjCPropertyAndIvarDecls(NameSearchContext &context) {
 
     return;
   } while (false);
+#endif
 
   do {
     // Check the modules only if the debug information didn't have a complete
@@ -1275,6 +1288,7 @@ void ClangASTSource::FindObjCPropertyAndIvarDecls(NameSearchContext &context) {
       return;
   } while (false);
 
+#ifdef CONSOLE_LOG_SAVER
   do {
     // Check the runtime only if the debug information didn't have a complete
     // interface and nothing was in the modules.
@@ -1318,6 +1332,7 @@ void ClangASTSource::FindObjCPropertyAndIvarDecls(NameSearchContext &context) {
                                                interface_decl_from_runtime))
       return;
   } while (false);
+#endif
 }
 
 void ClangASTSource::LookupInNamespace(NameSearchContext &context) {
