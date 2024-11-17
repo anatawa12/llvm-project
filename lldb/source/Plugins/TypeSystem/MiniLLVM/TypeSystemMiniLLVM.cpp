@@ -77,8 +77,6 @@
 
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
 #include "Plugins/SymbolFile/DWARF/DWARFASTParserClang.h"
-#include "Plugins/SymbolFile/PDB/PDBASTParser.h"
-#include "Plugins/SymbolFile/NativePDB/PdbAstBuilder.h"
 
 #include <cstdio>
 
@@ -8833,12 +8831,7 @@ bool TypeSystemMiniLLVM::LayoutRecordType(
         &base_offsets,
     llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
         &vbase_offsets) {
-  lldb_private::ClangASTImporter *importer = nullptr;
-  if (!importer)
-    return false;
-
-  return importer->LayoutRecordType(record_decl, bit_size, alignment,
-                                    field_offsets, base_offsets, vbase_offsets);
+  return false;
 }
 
 // CompilerDecl override functions
@@ -9323,13 +9316,6 @@ TypeSystemMiniLLVM::DeclContextGetAsNamespaceDecl(const CompilerDeclContext &dc)
   return nullptr;
 }
 
-std::optional<ClangASTMetadata>
-TypeSystemMiniLLVM::DeclContextGetMetaData(const CompilerDeclContext &dc,
-                                        const Decl *object) {
-  TypeSystemMiniLLVM *ast = llvm::cast<TypeSystemMiniLLVM>(dc.GetTypeSystem());
-  return ast->GetMetadata(object);
-}
-
 clang::ASTContext *
 TypeSystemMiniLLVM::DeclContextGetTypeSystemMiniLLVM(const CompilerDeclContext &dc) {
   TypeSystemMiniLLVM *ast =
@@ -9363,33 +9349,6 @@ void TypeSystemMiniLLVM::RequireCompleteType(CompilerType type) {
     ts->SetDeclIsForcefullyCompleted(td);
 }
 
-namespace {
-/// A specialized scratch AST used within ScratchTypeSystemMiniLLVM.
-/// These are the ASTs backing the different IsolatedASTKinds. They behave
-/// like a normal ScratchTypeSystemMiniLLVM but they don't own their own
-/// persistent  storage or target reference.
-class SpecializedScratchAST : public TypeSystemMiniLLVM {
-public:
-  /// \param name The display name of the TypeSystemMiniLLVM instance.
-  /// \param triple The triple used for the TypeSystemMiniLLVM instance.
-  /// \param ast_source The ClangASTSource that should be used to complete
-  ///                   type information.
-  SpecializedScratchAST(llvm::StringRef name, llvm::Triple triple,
-                        std::unique_ptr<ClangASTSource> ast_source)
-      : TypeSystemMiniLLVM(name, triple),
-        m_scratch_ast_source_up(std::move(ast_source)) {
-    // Setup the ClangASTSource to complete this AST.
-    m_scratch_ast_source_up->InstallASTContext(*this);
-    llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> proxy_ast_source(
-        m_scratch_ast_source_up->CreateProxy());
-    SetExternalSource(proxy_ast_source);
-  }
-
-  /// The ExternalASTSource that performs lookups and completes types.
-  std::unique_ptr<ClangASTSource> m_scratch_ast_source_up;
-};
-} // namespace
-
 char ScratchTypeSystemMiniLLVM::ID;
 const std::nullopt_t ScratchTypeSystemMiniLLVM::DefaultAST = std::nullopt;
 
@@ -9399,16 +9358,10 @@ ScratchTypeSystemMiniLLVM::ScratchTypeSystemMiniLLVM(Target &target,
       m_target_wp(target.shared_from_this()),
       m_persistent_variables(
           new ClangPersistentVariables(target.shared_from_this())) {
-  m_scratch_ast_source_up = CreateASTSource();
-  m_scratch_ast_source_up->InstallASTContext(*this);
-  llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> proxy_ast_source(
-      m_scratch_ast_source_up->CreateProxy());
-  SetExternalSource(proxy_ast_source);
 }
 
 void ScratchTypeSystemMiniLLVM::Finalize() {
   TypeSystemMiniLLVM::Finalize();
-  m_scratch_ast_source_up.reset();
 }
 
 TypeSystemMiniLLVMSP
@@ -9511,21 +9464,6 @@ ScratchTypeSystemMiniLLVM::GetPersistentExpressionState() {
   return m_persistent_variables.get();
 }
 
-void ScratchTypeSystemMiniLLVM::ForgetSource(ASTContext *src_ctx,
-                                          ClangASTImporter &importer) {
-  // Remove it as a source from the main AST.
-  importer.ForgetSource(&getASTContext(), src_ctx);
-  // Remove it as a source from all created sub-ASTs.
-  for (const auto &a : m_isolated_asts)
-    importer.ForgetSource(&a.second->getASTContext(), src_ctx);
-}
-
-std::unique_ptr<ClangASTSource> ScratchTypeSystemMiniLLVM::CreateASTSource() {
-  return std::make_unique<ClangASTSource>(
-      m_target_wp.lock()->shared_from_this(),
-      m_persistent_variables->GetClangASTImporter());
-}
-
 static llvm::StringRef
 GetSpecializedASTName(ScratchTypeSystemMiniLLVM::IsolatedASTKind feature) {
   switch (feature) {
@@ -9543,8 +9481,8 @@ TypeSystemMiniLLVM &ScratchTypeSystemMiniLLVM::GetIsolatedAST(
 
   // Couldn't find the requested sub-AST, so create it now.
   std::shared_ptr<TypeSystemMiniLLVM> new_ast_sp =
-      std::make_shared<SpecializedScratchAST>(GetSpecializedASTName(feature),
-                                              m_triple, CreateASTSource());
+      std::make_shared<TypeSystemMiniLLVM>(GetSpecializedASTName(feature),
+                                              m_triple);
   m_isolated_asts.insert({feature, new_ast_sp});
   return *new_ast_sp;
 }

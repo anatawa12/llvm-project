@@ -605,10 +605,6 @@ public:
   static clang::NamespaceDecl *
   DeclContextGetAsNamespaceDecl(const CompilerDeclContext &dc);
 
-  static std::optional<ClangASTMetadata>
-  DeclContextGetMetaData(const CompilerDeclContext &dc,
-                         const clang::Decl *object);
-
   static clang::ASTContext *
   DeclContextGetTypeSystemMiniLLVM(const CompilerDeclContext &dc);
 
@@ -1303,11 +1299,6 @@ public:
 
   PersistentExpressionState *GetPersistentExpressionState() override;
 
-  /// Unregisters the given ASTContext as a source from the scratch AST (and
-  /// all sub-ASTs).
-  /// \see ClangASTImporter::ForgetSource
-  void ForgetSource(clang::ASTContext *src_ctx, ClangASTImporter &importer);
-
   // llvm casting support
   bool isA(const void *ClassID) const override {
     return ClassID == &ID || TypeSystemMiniLLVM::isA(ClassID);
@@ -1315,7 +1306,6 @@ public:
   static bool classof(const TypeSystem *ts) { return ts->isA(&ID); }
 
 private:
-  std::unique_ptr<ClangASTSource> CreateASTSource();
   /// Returns the requested sub-AST.
   /// Will lazily create the sub-AST if it hasn't been created before.
   TypeSystemMiniLLVM &GetIsolatedAST(IsolatedASTKind feature);
@@ -1328,9 +1318,6 @@ private:
   /// The persistent variables associated with this process for the expression
   /// parser.
   std::unique_ptr<ClangPersistentVariables> m_persistent_variables;
-  /// The ExternalASTSource that performs lookups and completes minimally
-  /// imported types.
-  std::unique_ptr<ClangASTSource> m_scratch_ast_source_up;
 
   // FIXME: GCC 5.x doesn't support enum as map keys.
   typedef int IsolatedASTKey;
