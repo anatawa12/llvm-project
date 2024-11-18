@@ -118,10 +118,11 @@ function(add_lldb_library name)
       ${pass_NO_INSTALL_RPATH}
     )
 
+    # we no longer need clang
     if(CLANG_LINK_CLANG_DYLIB)
-      target_link_libraries(${name} PRIVATE clang-cpp)
+      #target_link_libraries(${name} PRIVATE clang-cpp)
     else()
-      target_link_libraries(${name} PRIVATE ${PARAM_CLANG_LIBS})
+      #target_link_libraries(${name} PRIVATE ${PARAM_CLANG_LIBS})
     endif()
   endif()
 
