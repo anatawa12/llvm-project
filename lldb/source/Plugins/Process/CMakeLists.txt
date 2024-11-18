@@ -13,6 +13,7 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
   add_subdirectory(MacOSX-Kernel)
 endif()
 add_subdirectory(scripted)
+# note: POSIX is based on "gdb-remote" so it should be included
 add_subdirectory(gdb-remote)
 add_subdirectory(Utility)
 if (false)
