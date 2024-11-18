@@ -9,8 +9,6 @@
 
 #include "TypeSystemMiniLLVM.h"
 
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/ExprCXX.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/FormatAdapters.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -27,13 +25,6 @@
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/Threading.h"
 
-#include "Plugins/ExpressionParser/Clang/ClangASTImporter.h"
-#include "Plugins/ExpressionParser/Clang/ClangASTMetadata.h"
-#include "Plugins/ExpressionParser/Clang/ClangExternalASTSourceCallbacks.h"
-#include "Plugins/ExpressionParser/Clang/ClangFunctionCaller.h"
-#include "Plugins/ExpressionParser/Clang/ClangPersistentVariables.h"
-#include "Plugins/ExpressionParser/Clang/ClangUtil.h"
-#include "Plugins/ExpressionParser/Clang/ClangUtilityFunction.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/DumpDataExtractor.h"
 #include "lldb/Core/Module.h"
@@ -63,8 +54,9 @@
 #include <mutex>
 #include <optional>
 
-#include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMUtilityFunction.h"
+#include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMFunctionCaller.h"
 #include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMUserExpression.h"
+#include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMUtilityFunction.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -2070,7 +2062,7 @@ FunctionCaller *ScratchTypeSystemMiniLLVM::GetFunctionCaller(
   if (!process)
     return nullptr;
 
-  return new ClangFunctionCaller(*process, return_type, function_address,
+  return new MiniLLVMFunctionCaller(*process, return_type, function_address,
                                  arg_value_list, name);
 }
 
