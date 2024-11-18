@@ -8,6 +8,7 @@
 // types and decls.
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #ifndef LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGUTIL_H
 #define LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGUTIL_H
 
@@ -48,3 +49,4 @@ struct ClangUtil {
 }
 
 #endif
+#endif // CONSOLE_LOG_SAVAER

@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if CONSOLE_LOG_SAVER || 1
 #ifndef LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGMODULESDECLVENDOR_H
 #define LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGMODULESDECLVENDOR_H
 
@@ -113,3 +114,4 @@ public:
 } // namespace lldb_private
 
 #endif // LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGMODULESDECLVENDOR_H
+#endif // CONSOLE_LOG_SAVER

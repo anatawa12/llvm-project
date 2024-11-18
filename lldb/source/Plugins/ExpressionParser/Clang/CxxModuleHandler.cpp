@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "Plugins/ExpressionParser/Clang/CxxModuleHandler.h"
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 
@@ -295,3 +296,4 @@ std::optional<Decl *> CxxModuleHandler::Import(Decl *d) {
 
   return tryInstantiateStdTemplate(d);
 }
+#endif // CONSOLE_LOG_SAVER

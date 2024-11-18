@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticFrontend.h"
 #include "clang/Basic/TargetInfo.h"
@@ -773,3 +774,4 @@ ClangModulesDeclVendor::Create(Target &target) {
                                         std::move(invocation),
                                         std::move(instance), std::move(parser));
 }
+#endif // CONSOLE_LOG_SAVER

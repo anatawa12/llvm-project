@@ -35,7 +35,11 @@
 #include "llvm/Support/ThreadPool.h"
 
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
+#ifdef CONSOLE_LOG_SAVER
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
+#else
+#include "Plugins/TypeSystem/MiniLLVM/TypeSystemMiniLLVM.h"
+#endif
 
 //#define ENABLE_DEBUG_PRINTF // COMMENT THIS LINE OUT PRIOR TO CHECKIN
 #ifdef ENABLE_DEBUG_PRINTF
@@ -1121,13 +1125,22 @@ DynamicLoaderDarwin::GetThreadLocalData(const lldb::ModuleSP module_sp,
     return LLDB_INVALID_ADDRESS;
 
   Target &target = m_process->GetTarget();
+#ifdef CONSOLE_LOG_SAVER
   TypeSystemClangSP scratch_ts_sp =
       ScratchTypeSystemClang::GetForTarget(target);
+#else
+  TypeSystemMiniLLVMSP scratch_ts_sp =
+      ScratchTypeSystemMiniLLVM::GetForTarget(target);
+#endif
   if (!scratch_ts_sp)
     return LLDB_INVALID_ADDRESS;
 
   CompilerType clang_void_ptr_type =
+#ifdef CONSOLE_LOG_SAVER
       scratch_ts_sp->GetBasicType(eBasicTypeVoid).GetPointerType();
+#else
+      scratch_ts_sp->GetBasicTypeFromAST(eBasicTypeVoid).GetPointerType();
+#endif
 
   auto evaluate_tls_address = [this, &thread_sp, &clang_void_ptr_type](
                                   Address func_ptr,

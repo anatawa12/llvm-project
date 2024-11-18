@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "Plugins/ExpressionParser/Clang/ClangDeclVendor.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
@@ -29,3 +30,4 @@ uint32_t ClangDeclVendor::FindDecls(ConstString name, bool append,
   }
   return ret;
 }
+#endif // CONSOLE_LOG_SAVER

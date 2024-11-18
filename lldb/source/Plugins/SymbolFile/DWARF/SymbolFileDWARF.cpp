@@ -1172,6 +1172,7 @@ bool SymbolFileDWARF::ParseImportedModules(
     std::vector<SourceModule> &imported_modules) {
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
   assert(sc.comp_unit);
+#ifdef CONSOLE_LOG_SAVER
   DWARFUnit *dwarf_cu = GetDWARFCompileUnit(sc.comp_unit);
   if (!dwarf_cu)
     return false;
@@ -1220,6 +1221,9 @@ bool SymbolFileDWARF::ParseImportedModules(
     }
   }
   return true;
+#else
+  return false;
+#endif
 }
 
 bool SymbolFileDWARF::ParseLineTable(CompileUnit &comp_unit) {
@@ -1601,8 +1605,12 @@ Type *SymbolFileDWARF::ResolveTypeUID(const DWARFDIE &die,
 // resolve a compiler_type.
 bool SymbolFileDWARF::HasForwardDeclForCompilerType(
     const CompilerType &compiler_type) {
+#ifdef CONSOLE_LOG_SAVER
   CompilerType compiler_type_no_qualifiers =
       ClangUtil::RemoveFastQualifiers(compiler_type);
+#else
+  CompilerType compiler_type_no_qualifiers = compiler_type;
+#endif
   if (GetForwardDeclCompilerTypeToDIE().count(
           compiler_type_no_qualifiers.GetOpaqueQualType())) {
     return true;
@@ -1635,8 +1643,12 @@ bool SymbolFileDWARF::CompleteType(CompilerType &compiler_type) {
 #endif
 
   // We have a struct/union/class/enum that needs to be fully resolved.
+#ifdef CONSOLE_LOG_SAVER
   CompilerType compiler_type_no_qualifiers =
       ClangUtil::RemoveFastQualifiers(compiler_type);
+#else
+  CompilerType compiler_type_no_qualifiers = compiler_type;
+#endif
   auto die_it = GetForwardDeclCompilerTypeToDIE().find(
       compiler_type_no_qualifiers.GetOpaqueQualType());
   if (die_it == GetForwardDeclCompilerTypeToDIE().end()) {
@@ -4270,10 +4282,12 @@ void SymbolFileDWARF::DumpClangAST(Stream &s) {
   if (!ts_or_err)
     return;
   auto ts = *ts_or_err;
+#ifdef CONSOLE_LOG_SAVER
   TypeSystemClang *clang = llvm::dyn_cast_or_null<TypeSystemClang>(ts.get());
   if (!clang)
     return;
   clang->Dump(s.AsRawOstream());
+#endif
 }
 
 bool SymbolFileDWARF::GetSeparateDebugInfo(StructuredData::Dictionary &d,

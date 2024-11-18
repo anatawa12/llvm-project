@@ -16,7 +16,11 @@
 #endif
 
 #include "Plugins/Platform/gdb-server/PlatformRemoteGDBServer.h"
+#ifdef CONSOLE_LOG_SAVER
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
+#else
+#include "Plugins/TypeSystem/MiniLLVM/TypeSystemMiniLLVM.h"
+#endif
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Breakpoint/BreakpointSite.h"
 #include "lldb/Core/Debugger.h"
@@ -357,8 +361,13 @@ uint32_t PlatformWindows::DoLoadImage(Process *process,
         invocation->DeallocateFunctionResults(context, injected_parameters);
       });
 
+#ifdef CONSOLE_LOG_SAVER
   TypeSystemClangSP scratch_ts_sp =
       ScratchTypeSystemClang::GetForTarget(process->GetTarget());
+#else
+  TypeSystemMiniLLVMSP scratch_ts_sp =
+      ScratchTypeSystemMiniLLVM::GetForTarget(process->GetTarget());
+#endif
   if (!scratch_ts_sp) {
     error = Status::FromErrorString(
         "LoadLibrary error: unable to get (clang) type system");
@@ -367,7 +376,11 @@ uint32_t PlatformWindows::DoLoadImage(Process *process,
 
   /* Setup Return Type */
   CompilerType VoidPtrTy =
+#ifdef CONSOLE_LOG_SAVER
       scratch_ts_sp->GetBasicType(eBasicTypeVoid).GetPointerType();
+#else
+      scratch_ts_sp->GetBasicTypeFromAST(eBasicTypeVoid).GetPointerType();
+#endif
 
   Value value;
   value.SetCompilerType(VoidPtrTy);
@@ -711,15 +724,28 @@ void * __lldb_LoadLibraryHelper(const wchar_t *name, const wchar_t *paths,
     return nullptr;
   }
 
+#ifdef CONSOLE_LOG_SAVER
   TypeSystemClangSP scratch_ts_sp =
       ScratchTypeSystemClang::GetForTarget(target);
+#else
+  TypeSystemMiniLLVMSP scratch_ts_sp =
+      ScratchTypeSystemMiniLLVM::GetForTarget(target);
+#endif
   if (!scratch_ts_sp)
     return nullptr;
 
   CompilerType VoidPtrTy =
+#ifdef CONSOLE_LOG_SAVER
       scratch_ts_sp->GetBasicType(eBasicTypeVoid).GetPointerType();
+#else
+      scratch_ts_sp->GetBasicTypeFromAST(eBasicTypeVoid).GetPointerType();
+#endif
   CompilerType WCharPtrTy =
+#ifdef CONSOLE_LOG_SAVER
       scratch_ts_sp->GetBasicType(eBasicTypeWChar).GetPointerType();
+#else
+      scratch_ts_sp->GetBasicTypeFromAST(eBasicTypeWChar).GetPointerType();
+#endif
 
   ValueList parameters;
 

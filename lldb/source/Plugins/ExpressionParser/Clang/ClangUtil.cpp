@@ -8,6 +8,7 @@
 // types and decls.
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 
@@ -84,3 +85,4 @@ std::string ClangUtil::ToString(const clang::Type *t) {
 std::string ClangUtil::ToString(const CompilerType &c) {
   return ClangUtil::GetQualType(c).getAsString();
 }
+#endif // CONSOLE_LOG_SAVER

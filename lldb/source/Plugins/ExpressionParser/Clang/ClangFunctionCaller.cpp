@@ -42,6 +42,7 @@
 #include "lldb/ValueObject/ValueObjectList.h"
 
 #if !CONSOLE_LOG_SAVER
+#include "lldb/Expression/DiagnosticManager.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 

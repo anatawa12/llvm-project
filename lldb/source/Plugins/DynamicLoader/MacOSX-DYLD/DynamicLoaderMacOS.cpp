@@ -25,7 +25,11 @@
 #include "DynamicLoaderDarwin.h"
 #include "DynamicLoaderMacOS.h"
 
+#ifdef CONSOLE_LOG_SAVER
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
+#else
+#include "Plugins/TypeSystem/MiniLLVM/TypeSystemMiniLLVM.h"
+#endif
 
 using namespace lldb;
 using namespace lldb_private;
@@ -263,8 +267,13 @@ bool DynamicLoaderMacOS::NotifyBreakpointHit(void *baton,
     // Build up the value array to store the three arguments given above, then
     // get the values from the ABI:
 
+#ifdef CONSOLE_LOG_SAVER
     TypeSystemClangSP scratch_ts_sp =
         ScratchTypeSystemClang::GetForTarget(process->GetTarget());
+#else
+    TypeSystemMiniLLVMSP scratch_ts_sp =
+        ScratchTypeSystemMiniLLVM::GetForTarget(process->GetTarget());
+#endif
     if (!scratch_ts_sp)
       return false;
 
@@ -277,7 +286,11 @@ bool DynamicLoaderMacOS::NotifyBreakpointHit(void *baton,
     Value headers_value; // struct dyld_image_info machHeaders[]
 
     CompilerType clang_void_ptr_type =
+#ifdef CONSOLE_LOG_SAVER
         scratch_ts_sp->GetBasicType(eBasicTypeVoid).GetPointerType();
+#else
+        scratch_ts_sp->GetBasicTypeFromAST(eBasicTypeVoid).GetPointerType();
+#endif
     CompilerType clang_uint32_type =
         scratch_ts_sp->GetBuiltinTypeForEncodingAndBitSize(lldb::eEncodingUint,
                                                            32);

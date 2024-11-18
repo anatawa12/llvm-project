@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if CONSOLE_LOG_SAVER
 #include "Plugins/ExpressionParser/Clang/ClangExternalASTSourceCallbacks.h"
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 
@@ -88,3 +89,4 @@ OptionalClangModuleID
 ClangExternalASTSourceCallbacks::GetIDForModule(clang::Module *module) {
   return OptionalClangModuleID(m_ids[module]);
 }
+#endif // CONSOLE_LOG_SAVER

@@ -9,7 +9,11 @@
 #include "PlatformPOSIX.h"
 
 #include "Plugins/Platform/gdb-server/PlatformRemoteGDBServer.h"
+#ifdef CONSOLE_LOG_SAVER
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
+#else
+#include "Plugins/TypeSystem/MiniLLVM/TypeSystemMiniLLVM.h"
+#endif
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Expression/DiagnosticManager.h"
@@ -776,15 +780,28 @@ begin_block 10                      ; block 35; preds = %15, %30, %32
   FunctionCaller *do_dlopen_function = nullptr;
 
   // Fetch the clang types we will need:
+#ifdef CONSOLE_LOG_SAVER
   TypeSystemClangSP scratch_ts_sp =
       ScratchTypeSystemClang::GetForTarget(process->GetTarget());
+#else
+  TypeSystemMiniLLVMSP scratch_ts_sp =
+      ScratchTypeSystemMiniLLVM::GetForTarget(process->GetTarget());
+#endif
   if (!scratch_ts_sp)
     return nullptr;
 
   CompilerType clang_void_pointer_type =
+#ifdef CONSOLE_LOG_SAVER
       scratch_ts_sp->GetBasicType(eBasicTypeVoid).GetPointerType();
+#else
+      scratch_ts_sp->GetBasicTypeFromAST(eBasicTypeVoid).GetPointerType();
+#endif
   CompilerType clang_char_pointer_type =
+#ifdef CONSOLE_LOG_SAVER
       scratch_ts_sp->GetBasicType(eBasicTypeChar).GetPointerType();
+#else
+      scratch_ts_sp->GetBasicTypeFromAST(eBasicTypeChar).GetPointerType();
+#endif
 
   // We are passing four arguments, the basename, the list of places to look,
   // a buffer big enough for all the path + name combos, and
@@ -1028,8 +1045,13 @@ uint32_t PlatformPOSIX::DoLoadImage(lldb_private::Process *process,
 
   Value return_value;
   // Fetch the clang types we will need:
+#ifdef CONSOLE_LOG_SAVER
   TypeSystemClangSP scratch_ts_sp =
       ScratchTypeSystemClang::GetForTarget(process->GetTarget());
+#else
+  TypeSystemMiniLLVMSP scratch_ts_sp =
+      ScratchTypeSystemMiniLLVM::GetForTarget(process->GetTarget());
+#endif
   if (!scratch_ts_sp) {
     error =
         Status::FromErrorString("dlopen error: Unable to get TypeSystemClang");
@@ -1037,7 +1059,11 @@ uint32_t PlatformPOSIX::DoLoadImage(lldb_private::Process *process,
   }
 
   CompilerType clang_void_pointer_type =
+#ifdef CONSOLE_LOG_SAVER
       scratch_ts_sp->GetBasicType(eBasicTypeVoid).GetPointerType();
+#else
+      scratch_ts_sp->GetBasicTypeFromAST(eBasicTypeVoid).GetPointerType();
+#endif
 
   return_value.SetCompilerType(clang_void_pointer_type);
   
