@@ -19,8 +19,6 @@ class MiniLLVMCompiler {
   std::unique_ptr<llvm::LLVMContext> context;
   std::unique_ptr<llvm::IRBuilder<>> builder;
   std::unique_ptr<llvm::Module> module;
-  std::vector<llvm::Type *> types;
-  std::vector<llvm::Value *> values;
   llvm::Function *current_fn = nullptr;
   std::vector<llvm::BasicBlock *> blocks;
   llvm::StringMap<llvm::Value *> named_values;

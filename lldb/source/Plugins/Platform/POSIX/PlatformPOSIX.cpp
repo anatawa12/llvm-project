@@ -627,18 +627,14 @@ PlatformPOSIX::MakeLoadImageUtilityFunction(ExecutionContext &exe_ctx,
   static const char *dlopen_wrapper_minillvm_code = R"(
 #!mini-llvm
 
-push_type ptr
-push_type ptr
-define_struct __lldb_dlopen_result
+define_struct __lldb_dlopen_result ptr ptr
 ;%struct.__lldb_dlopen_result = type { ptr, ptr }
 
 ;@RTLD_LAZY = local_unnamed_addr constant i32 1, align 4
 
 
 ; declare ptr @dlopen(ptr, i32)
-push_type ptr
-push_type i32
-define_function_type ptr dlopen
+define_function_type ptr dlopen ptr i32
 declare_function dlopen dlopen
 
 ; declare ptr @dlerror()
@@ -647,8 +643,7 @@ declare_function dlerror dlerror
 
 
 ; declare iptr @strlen(ptr)
-push_type ptr
-define_function_type iptr strlen
+define_function_type iptr strlen ptr
 declare_function strlen strlen
 
 ; llvm.memcpy.p0.p0.iptr is built-in
@@ -657,11 +652,7 @@ declare_function strlen strlen
 
 
 ; define ptr @__lldb_dlopen_wrapper(ptr %0, ptr %1, ptr %2, ptr %3) {
-push_type ptr
-push_type ptr
-push_type ptr
-push_type ptr
-define_function_type ptr __lldb_dlopen_wrapper
+define_function_type ptr __lldb_dlopen_wrapper ptr ptr ptr ptr
 define_function __lldb_dlopen_wrapper __lldb_dlopen_wrapper 11
 
 ; constants
@@ -676,9 +667,7 @@ begin_block 0
   cond_br %5 1 3                    ; br i1 %5, label %6, label %11
 
 begin_block 1                       ; block %6
-  push_value %0
-  push_value i32_1
-  call %7 dlopen dlopen             ; %7 = tail call ptr @dlopen(ptr noundef %0, i32 noundef 1) #4
+  call %7 dlopen dlopen %0 i32_1    ; %7 = tail call ptr @dlopen(ptr noundef %0, i32 noundef 1) #4
   store %7 %3                       ; store ptr %7, ptr %3, align 8, !tbaa !6
   icmp %8 eq %7 null                ; %8 = icmp eq ptr %7, null
   cond_br %8 2 9                    ; br i1 %8, label %9, label %32
@@ -688,8 +677,7 @@ begin_block 2                       ; block 9; preds = %6
   br 9                              ; br label %32
 
 begin_block 3                       ; block 11; preds = %4
-  push_value %0
-  call %12 strlen strlen            ; %12 = tail call iptr @strlen(ptr noundef nonnull dereferenceable(1) %0)
+  call %12 strlen strlen %0         ; %12 = tail call iptr @strlen(ptr noundef nonnull dereferenceable(1) %0)
   add %13 %12 iptr_1                ; %13 = add iptr %12, 1
   getelementptr %14 __lldb_dlopen_result %3 iptr_0 i32_1    ; %14 = getelementptr %struct.__lldb_dlopen_result, ptr %3, iptr 0, i32 1
   br 4                              ; br label %15
@@ -701,24 +689,13 @@ begin_block 4                       ; block 15; preds = %30, %11
   cond_br %18 10 5                  ; br i1 %18, label %35, label %19
 
 begin_block 5                       ; block 19; preds = %15
-  push_value %16
-  call %20 strlen strlen            ; %20 = tail call iptr @strlen(ptr noundef nonnull dereferenceable(1) %16)
-  push_value %2
-  push_value %16
-  push_value %20
-  push_value false
-  call _ llvm.memcpy.p0.p0.iptr llvm.memcpy.p0.p0.iptr      ; tail call void @llvm.memcpy.p0.p0.iptr(ptr align 1 %2, ptr nonnull align 1 %16, iptr %20, i1 false)
+  call %20 strlen strlen %16        ; %20 = tail call iptr @strlen(ptr noundef nonnull dereferenceable(1) %16)
+  call _ llvm.memcpy.p0.p0.iptr llvm.memcpy.p0.p0.iptr %2 %16 %20 false     ; tail call void @llvm.memcpy.p0.p0.iptr(ptr align 1 %2, ptr nonnull align 1 %16, iptr %20, i1 false)
   getelementptr %21 i8 %2 %20       ; %21 = getelementptr inbounds i8, ptr %2, iptr %20
   store i8_47 %21                   ; store i8 47, ptr %21, align 1, !tbaa !11
   getelementptr %22 i8 %21 iptr_1   ; %22 = getelementptr inbounds i8, ptr %21, iptr 1
-  push_value %22
-  push_value %0
-  push_value %13
-  push_value false
-  call _ llvm.memcpy.p0.p0.iptr llvm.memcpy.p0.p0.iptr      ; tail call void @llvm.memcpy.p0.p0.iptr(ptr nonnull align 1 %22, ptr align 1 %0, iptr %13, i1 false)
-  push_value %2
-  push_value i32_1
-  call %23 dlopen dlopen            ; %23 = tail call ptr @dlopen(ptr noundef %2, i32 noundef 1) #4
+  call _ llvm.memcpy.p0.p0.iptr llvm.memcpy.p0.p0.iptr %22 %0 %13 false     ; tail call void @llvm.memcpy.p0.p0.iptr(ptr nonnull align 1 %22, ptr align 1 %0, iptr %13, i1 false)
+  call %23 dlopen dlopen %2 i32_1   ; %23 = tail call ptr @dlopen(ptr noundef %2, i32 noundef 1) #4
   store %23 %3                      ; store ptr %23, ptr %3, align 8, !tbaa !6
   icmp %24 eq %23 null              ; %24 = icmp eq ptr %23, null
   cond_br %24 7 6                   ; br i1 %24, label %26, label %25

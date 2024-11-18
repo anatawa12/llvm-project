@@ -147,15 +147,7 @@ bool MiniLLVMCompiler::ParseAndEmit(llvm::StringRef text) {
 
 bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
   auto insn = tokens.at(0);
-  if (insn == "push_type") {
-    MLGetType(1, type);
-    types.push_back(type);
-  } else if (insn == "push_value") {
-    MLGetValue(1, value);
-    values.push_back(value);
-  }
-
-  else if (insn == "const") {
+  if (insn == "const") {
     auto name = tokens.at(1);
     MLGetType(2, type);
     auto *value = ConstantInt::get(
@@ -165,18 +157,29 @@ bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
 
   else if (insn == "define_struct") {
     auto name = tokens.at(1);
+    std::vector<llvm::Type *> types;
+
+    for (size_t i = 2; i < tokens.size(); i++) {
+      MLGetType(i, type);
+      types.push_back(type);
+    }
+
     auto *new_type =
         StructType::create(*context, ArrayRef<Type *>(types), name);
-    types.clear();
     named_types[name] = new_type;
   } else if (insn == "define_function_type") {
     MLGetType(1, return_type);
     auto function_type_name = tokens.at(2);
+    std::vector<llvm::Type *> types;
+
+    for (size_t i = 3; i < tokens.size(); i++) {
+      MLGetType(i, type);
+      types.push_back(type);
+    }
 
     auto *function_type =
         FunctionType::get(return_type, ArrayRef<Type *>(types), false);
 
-    types.clear();
     named_types[function_type_name] = function_type;
   } else if (insn == "declare_function") {
     MLGetType(1, function_type);
@@ -242,6 +245,12 @@ bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
     auto result = tokens.at(1);
     MLGetType(2, function_type_raw);
     MLGetValue(3, function);
+    std::vector<Value *> values;
+    for (size_t i = 4; i < tokens.size(); i++) {
+      MLGetValue(i, value);
+      values.push_back(value);
+    }
+
     auto *function_type = cast<FunctionType>(function_type_raw);
 
     if (values.size() != function_type->getNumParams() &&
@@ -267,7 +276,6 @@ bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
 
     named_values[result] =
         builder->CreateCall(function_type, function, ArrayRef<Value *>(values));
-    values.clear();
   } else if (insn == "store") {
     MLGetValue(1, value);
     MLGetValue(2, ptr);
