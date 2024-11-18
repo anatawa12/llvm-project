@@ -289,6 +289,7 @@ void CommandInterpreter::Initialize() {
 
   LoadCommandDictionary();
 
+#if CONSOLE_LOG_SAVER
   // An alias arguments vector to reuse - reset it before use...
   OptionArgVectorSP alias_arguments_vector_sp(new OptionArgVector);
 
@@ -534,6 +535,7 @@ void CommandInterpreter::Initialize() {
   if (cmd_obj_sp) {
     AddAlias("h", cmd_obj_sp);
   }
+#endif // CONSOLE_LOG_SAVER
 }
 
 void CommandInterpreter::Clear() {
@@ -557,6 +559,7 @@ const char *CommandInterpreter::ProcessEmbeddedScriptCommands(const char *arg) {
   m_command_dict[NAME] = std::make_shared<CLASS>(*this);
 
 void CommandInterpreter::LoadCommandDictionary() {
+#if CONSOLE_LOG_SAVER
   LLDB_SCOPED_TIMER();
 
   REGISTER_COMMAND_OBJECT("apropos", CommandObjectApropos);
@@ -939,6 +942,7 @@ void CommandInterpreter::LoadCommandDictionary() {
           jump_regex_cmd_sp;
     }
   }
+#endif
 }
 
 int CommandInterpreter::GetCommandNamesMatchingPartialString(
