@@ -393,6 +393,9 @@ public:
   }
 
   MiniLLVMType getPointerType() const {
+    if (getType()->isVoidTy()) {
+      return MiniLLVMType(llvm::PointerType::get(getType()->getContext(), 0));
+    }
     return MiniLLVMType(llvm::TypedPointerType::get(getType(), 0),
                         getPayload());
   }
@@ -651,6 +654,8 @@ TypeSystemMiniLLVM::IsHomogeneousAggregate(lldb::opaque_compiler_type_t type,
       *base_type_ptr = GetType(base_type);
     return num_fields;
   } break;
+  default:
+    break;
   }
 
   return 0;
@@ -826,6 +831,8 @@ bool TypeSystemMiniLLVM::IsPossibleDynamicType(
           dynamic_pointee_type->SetCompilerType(
               weak_from_this(), pointee_mini_type.getOpaqueType());
         return true;
+      default:
+        break;
       }
     }
   }
@@ -1185,7 +1192,7 @@ TypeSystemMiniLLVM::GetFunctionReturnType(lldb::opaque_compiler_type_t type) {
   if (type) {
     auto *llvm_type = GetMiniType(type).getType();
     if (llvm_type->isFunctionTy()) {
-      return GetType({cast<llvm::FunctionType>(llvm_type)->getReturnType()});
+      return GetType({llvm::cast<llvm::FunctionType>(llvm_type)->getReturnType()});
     }
   }
   return CompilerType();
@@ -1504,7 +1511,7 @@ TypeSystemMiniLLVM::GetNumChildren(lldb::opaque_compiler_type_t type,
   case llvm::Type::PPC_FP128TyID:
     break;
   case llvm::Type::StructTyID: {
-    auto *struct_type = cast<llvm::StructType>(mini_type.getType());
+    auto *struct_type = llvm::cast<llvm::StructType>(mini_type.getType());
     if (struct_type->isOpaque())
       return llvm::createStringError("opaque struct type");
 
@@ -1512,7 +1519,7 @@ TypeSystemMiniLLVM::GetNumChildren(lldb::opaque_compiler_type_t type,
   } break;
   case llvm::Type::FixedVectorTyID:
   case llvm::Type::ScalableVectorTyID:
-    num_children = cast<llvm::VectorType>(mini_type.getType())
+    num_children = llvm::cast<llvm::VectorType>(mini_type.getType())
                        ->getElementCount()
                        .getKnownMinValue();
     break;
@@ -1525,7 +1532,7 @@ TypeSystemMiniLLVM::GetNumChildren(lldb::opaque_compiler_type_t type,
     num_children = 0;
     if (pointee.getType()->isStructTy()) {
       num_children =
-          cast<llvm::StructType>(pointee.getType())->getNumElements();
+          llvm::cast<llvm::StructType>(pointee.getType())->getNumElements();
     }
     if (num_children == 0) {
       num_children = pointee.getType()->isIntegerTy() ? 1 : 0;
@@ -1581,6 +1588,7 @@ TypeSystemMiniLLVM::GetBasicTypeEnumeration(lldb::opaque_compiler_type_t type) {
           return mini_type.isSigned() ? eBasicTypeLongLong
                                       : eBasicTypeUnsignedLongLong;
       }
+      break;
     case llvm::Type::VoidTyID:
       return eBasicTypeVoid;
     case llvm::Type::PointerTyID:
@@ -1626,7 +1634,7 @@ CompilerType TypeSystemMiniLLVM::GetFieldAtIndex(
 
     if (bit_offset_ptr) {
       auto *layout = getLLVMModule().getDataLayout().getStructLayout(
-          cast<llvm::StructType>(mini_type.getType()));
+          llvm::cast<llvm::StructType>(mini_type.getType()));
       *bit_offset_ptr = layout->getElementOffsetInBits(idx);
     }
 
@@ -1641,6 +1649,8 @@ CompilerType TypeSystemMiniLLVM::GetFieldAtIndex(
 
     return GetType({field_type});
   }
+
+  return CompilerType();
 }
 
 uint32_t
@@ -1701,7 +1711,7 @@ llvm::Expected<CompilerType> TypeSystemMiniLLVM::GetChildCompilerTypeAtIndex(
   switch (mini_type.getType()->getTypeID()) {
   case llvm::Type::StructTyID:
     if (idx_is_valid) {
-      auto *struct_type = cast<llvm::StructType>(mini_type.getType());
+      auto *struct_type = llvm::cast<llvm::StructType>(mini_type.getType());
       auto *layout =
           getLLVMModule().getDataLayout().getStructLayout(struct_type);
       auto *element_type = struct_type->getElementType(idx);
@@ -1718,9 +1728,8 @@ llvm::Expected<CompilerType> TypeSystemMiniLLVM::GetChildCompilerTypeAtIndex(
   case llvm::Type::FixedVectorTyID:
   case llvm::Type::ScalableVectorTyID:
     if (idx_is_valid) {
-      auto *vector_type = cast<llvm::VectorType>(mini_type.getType());
+      auto *vector_type = llvm::cast<llvm::VectorType>(mini_type.getType());
       auto *element_type = vector_type->getElementType();
-      char element_name[64];
       child_name = std::string(llvm::formatv("[{0}]", idx));
       child_byte_size =
           getLLVMModule().getDataLayout().getTypeAllocSize(element_type);
@@ -1730,7 +1739,7 @@ llvm::Expected<CompilerType> TypeSystemMiniLLVM::GetChildCompilerTypeAtIndex(
     break;
   case llvm::Type::ArrayTyID:
     if (ignore_array_bounds || idx_is_valid) {
-      auto *array_type = cast<llvm::ArrayType>(mini_type.getType());
+      auto *array_type = llvm::cast<llvm::ArrayType>(mini_type.getType());
       auto *element_type = array_type->getElementType();
       child_name = std::string(llvm::formatv("[{0}]", idx));
       child_byte_size =
@@ -1776,7 +1785,7 @@ llvm::Expected<CompilerType> TypeSystemMiniLLVM::GetChildCompilerTypeAtIndex(
         }
       }
     }
-  }
+  } break;
 
   default:
     break;
@@ -1912,7 +1921,7 @@ void TypeSystemMiniLLVM::DumpTypeDescription(lldb::opaque_compiler_type_t type,
 
     switch (mini_type.getType()->getTypeID()) {
     case llvm::Type::StructTyID: {
-      auto *struct_type = cast<llvm::StructType>(mini_type.getType());
+      auto *struct_type = llvm::cast<llvm::StructType>(mini_type.getType());
       if (struct_type->isOpaque()) {
         s.PutCString("opaque struct");
         return;
