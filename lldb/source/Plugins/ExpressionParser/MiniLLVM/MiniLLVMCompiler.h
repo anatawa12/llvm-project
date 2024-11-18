@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_MINILLVMCOMPILER_H
-#define LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_MINILLVMCOMPILER_H
+#ifndef LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_MINILLVM_MINILLVMCOMPILER_H
+#define LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_MINILLVM_MINILLVMCOMPILER_H
 
 #include "lldb/lldb-forward.h"
 #include "lldb/lldb-private.h"

@@ -32,7 +32,6 @@
 #include "Plugins/ExpressionParser/Clang/ClangExternalASTSourceCallbacks.h"
 #include "Plugins/ExpressionParser/Clang/ClangFunctionCaller.h"
 #include "Plugins/ExpressionParser/Clang/ClangPersistentVariables.h"
-#include "Plugins/ExpressionParser/Clang/ClangUserExpression.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtilityFunction.h"
 #include "lldb/Core/Debugger.h"
@@ -65,6 +64,7 @@
 #include <optional>
 
 #include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMUtilityFunction.h"
+#include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMUserExpression.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -2055,7 +2055,7 @@ UserExpression *ScratchTypeSystemMiniLLVM::GetUserExpression(
   if (!target_sp)
     return nullptr;
 
-  return new ClangUserExpression(*target_sp.get(), expr, prefix, language,
+  return new MiniLLVMUserExpression(*target_sp.get(), expr, prefix, language,
                                  desired_type, options, ctx_obj);
 }
 

@@ -1,6 +1,7 @@
 add_lldb_library(lldbPluginExpressionParserMiniLLVM
   MiniLLVMCompiler.cpp
   MiniLLVMUtilityFunction.cpp
+  MiniLLVMUserExpression.cpp
 
   DEPENDS
   intrinsics_gen
@@ -18,18 +19,6 @@ add_lldb_library(lldbPluginExpressionParserMiniLLVM
     lldbPluginCPPRuntime
     lldbPluginObjCRuntime
     lldbPluginTypeSystemClang
-  CLANG_LIBS
-    clangAST
-    clangCodeGen
-    clangDriver
-    clangEdit
-    clangFrontend
-    clangLex
-    clangParse
-    clangRewrite
-    clangRewriteFrontend
-    clangSema
-    clangSerialization
   LINK_COMPONENTS
     Core
     ExecutionEngine
