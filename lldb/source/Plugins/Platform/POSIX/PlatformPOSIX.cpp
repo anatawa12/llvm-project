@@ -540,7 +540,11 @@ Status PlatformPOSIX::EvaluateLibdlExpression(
   expr_options.SetUnwindOnError(true);
   expr_options.SetIgnoreBreakpoints(true);
   expr_options.SetExecutionPolicy(eExecutionPolicyAlways);
+#ifdef CONSOLE_LOG_SAVER
   expr_options.SetLanguage(eLanguageTypeC_plus_plus);
+#else
+  expr_options.SetLanguage(eLanguageTypeMiniLLVM);
+#endif
   expr_options.SetTrapExceptions(false); // dlopen can't throw exceptions, so
                                          // don't do the work to trap them.
   expr_options.SetTimeout(process->GetUtilityExpressionTimeout());
@@ -553,6 +557,9 @@ Status PlatformPOSIX::EvaluateLibdlExpression(
     return expr_error;
 
   if (result_valobj_sp->GetError().Fail())
+#ifndef CONSOLE_LOG_SAVER
+    if (result_valobj_sp->GetError().GetError() != UserExpression::kNoResult)
+#endif
     return result_valobj_sp->GetError().Clone();
   return Status();
 }
@@ -1108,8 +1115,21 @@ Status PlatformPOSIX::UnloadImage(lldb_private::Process *process,
     return Status::FromErrorString("Invalid image token");
 
   StreamString expr;
+#ifdef CONSOLE_LOG_SAVER
   expr.Printf("dlclose((void *)0x%" PRIx64 ")", image_addr);
   llvm::StringRef prefix = GetLibdlFunctionDeclarations(process);
+#else
+  expr.Printf(
+      "#!mini-llvm-expr 1\n"
+      "define_function_type i32 dlclose ptr\n"
+      "declare_function dlclose dlclose\n"
+      "\n"
+      "const target_ptr ptr %" PRId64 "\n"
+      "call ret dlclose dlclose target_ptr\n"
+      "ret_void\n", 
+      image_addr);
+  llvm::StringRef prefix = "";
+#endif
   lldb::ValueObjectSP result_valobj_sp;
   Status error = EvaluateLibdlExpression(process, expr.GetData(), prefix,
                                          result_valobj_sp);
@@ -1117,6 +1137,9 @@ Status PlatformPOSIX::UnloadImage(lldb_private::Process *process,
     return error;
 
   if (result_valobj_sp->GetError().Fail())
+#ifndef CONSOLE_LOG_SAVER
+    if (result_valobj_sp->GetError().GetError() != UserExpression::kNoResult)
+#endif
     return result_valobj_sp->GetError().Clone();
 
   Scalar scalar;
