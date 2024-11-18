@@ -1,4 +1,4 @@
-//===-- TypeSystemMiniLLVM.h ---------------------------------------*- C++ -*-===//
+//===-- TypeSystemMiniLLVM.h ------------------------------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -23,7 +23,6 @@
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallVector.h"
 
-#include "Plugins/ExpressionParser/Clang/ClangASTMetadata.h"
 #include "lldb/Expression/ExpressionVariable.h"
 #include "lldb/Symbol/CompilerType.h"
 #include "lldb/Symbol/TypeSystem.h"
@@ -412,6 +411,8 @@ public:
   void DumpTypeDescription(
       lldb::opaque_compiler_type_t type, Stream &s,
       lldb::DescriptionLevel level = lldb::eDescriptionLevelFull) override;
+
+  const MiniLLVMContext *getMiniLLVMContext() const;
 
 private:
   /// Emits information about this TypeSystem into the expression log.

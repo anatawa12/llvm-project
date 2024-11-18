@@ -1,4 +1,5 @@
-//===-- MiniLLVMFunctionCaller.cpp -------------------------------------------===//
+//===-- MiniLLVMFunctionCaller.cpp
+//-------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,7 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "MiniLLVMFunctionCaller.h"
-
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -65,7 +65,8 @@ public:
     func_addr = LLDB_INVALID_ADDRESS;
     func_end = LLDB_INVALID_ADDRESS;
 
-    MiniLLVMFunctionCaller &expr = static_cast<MiniLLVMFunctionCaller &>(m_expr);
+    MiniLLVMFunctionCaller &expr =
+        static_cast<MiniLLVMFunctionCaller &>(m_expr);
 
     // do JIT
     std::unique_ptr<llvm::LLVMContext> context =
@@ -124,10 +125,8 @@ public:
     std::vector<llvm::Value *> args;
     for (size_t i = 0; i < argument_types.size(); ++i) {
       auto *arg_pointer = builder->CreateGEP(
-          struct_type, 
-          parameter,
-          {builder->getIntN(ptr_size, 0), 
-           builder->getInt32(i + 1)});
+          struct_type, parameter,
+          {builder->getIntN(ptr_size, 0), builder->getInt32(i + 1)});
       // TODO: extend support for non pointers
       auto *arg_value =
           builder->CreateLoad(llvm::PointerType::get(*context, 0), arg_pointer);
@@ -141,8 +140,8 @@ public:
         struct_type, parameter,
         {builder->getIntN(ptr_size, 0),
          builder->getInt32(argument_types.size() + 1)});
-        builder->Insert(return_pointer);
-        builder->CreateStore(return_value, return_pointer);
+    builder->Insert(return_pointer);
+    builder->CreateStore(return_value, return_pointer);
     builder->CreateRetVoid();
 
     SymbolContext sc;
@@ -150,8 +149,8 @@ public:
     std::vector<std::string> target_feature;
 
     execution_unit_sp = std::make_shared<IRExecutionUnit>(
-        context,   // handed off here
-        module, // handed off here
+        context, // handed off here
+        module,  // handed off here
         function_name, exe_ctx.GetTargetSP(), sc, target_feature);
     execution_unit_sp->GetRunnableInfo(err, func_addr, func_end);
 
@@ -163,13 +162,13 @@ public:
 char MiniLLVMFunctionCaller::ID;
 
 // MiniLLVMFunctionCaller constructor
-MiniLLVMFunctionCaller::MiniLLVMFunctionCaller(ExecutionContextScope &exe_scope,
-                                         const CompilerType &return_type,
-                                         const Address &functionAddress,
-                                         const ValueList &arg_value_list,
-                                         const char *name)
+MiniLLVMFunctionCaller::MiniLLVMFunctionCaller(
+    ExecutionContextScope &exe_scope, const CompilerType &return_type,
+    const Address &functionAddress, const ValueList &arg_value_list,
+    const char *name, const MiniLLVMContext *miniContext)
     : FunctionCaller(exe_scope, return_type, functionAddress, arg_value_list,
-                     name) {
+                     name),
+      m_mini_context(miniContext) {
   m_jit_process_wp = lldb::ProcessWP(exe_scope.CalculateProcess());
   // Can't make a MiniLLVMFunctionCaller without a process.
   assert(m_jit_process_wp.lock());
@@ -181,7 +180,7 @@ MiniLLVMFunctionCaller::~MiniLLVMFunctionCaller() = default;
 unsigned
 
 MiniLLVMFunctionCaller::CompileFunction(lldb::ThreadSP thread_to_use_sp,
-                                     DiagnosticManager &diagnostic_manager) {
+                                        DiagnosticManager &diagnostic_manager) {
   if (m_compiled)
     return 0;
 
@@ -249,8 +248,7 @@ MiniLLVMFunctionCaller::CompileFunction(lldb::ThreadSP thread_to_use_sp,
       m_return_offset = (num_args + 1) * 8;
       m_return_size = 8;
 
-      for (unsigned field_index = 0,
-                    num_fields = num_args + 2;
+      for (unsigned field_index = 0, num_fields = num_args + 2;
            field_index < num_fields; ++field_index) {
         uint64_t offset = (field_index) * 8;
         m_member_offsets.push_back(offset);
@@ -265,7 +263,7 @@ MiniLLVMFunctionCaller::CompileFunction(lldb::ThreadSP thread_to_use_sp,
 
   lldb::ProcessSP jit_process_sp(m_jit_process_wp.lock());
   if (jit_process_sp) {
-    //const bool generate_debug_info = true;
+    // const bool generate_debug_info = true;
     auto *clang_parser = new MiniLLVMFunctionCallerExpressionParser(
         jit_process_sp.get(), *this, argument_types);
     num_errors = 0;

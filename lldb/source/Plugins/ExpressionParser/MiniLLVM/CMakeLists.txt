@@ -3,6 +3,7 @@ add_lldb_library(lldbPluginExpressionParserMiniLLVM
   MiniLLVMUtilityFunction.cpp
   MiniLLVMUserExpression.cpp
   MiniLLVMFunctionCaller.cpp
+  MiniLLVMContext.cpp
 
   DEPENDS
   intrinsics_gen

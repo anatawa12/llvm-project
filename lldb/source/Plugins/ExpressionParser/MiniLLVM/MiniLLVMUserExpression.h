@@ -66,7 +66,8 @@ public:
                       llvm::StringRef prefix, SourceLanguage language,
                       ResultType desired_type,
                       const EvaluateExpressionOptions &options,
-                      ValueObject *ctx_obj);
+                      ValueObject *ctx_obj,
+                      const MiniLLVMContext *miniContext);
 
   ~MiniLLVMUserExpression() override;
 
@@ -97,6 +98,7 @@ public:
   GetResultAfterDematerialization(ExecutionContextScope *exe_scope) override;
 
 private:
+  const MiniLLVMContext *m_mini_context;
   /// Populate m_in_cplusplus_method and m_in_objectivec_method based on the
   /// environment.
 

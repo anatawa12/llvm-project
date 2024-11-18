@@ -22,7 +22,6 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/TypedPointerType.h"
-#include "llvm/Support/Signals.h"
 #include "llvm/Support/Threading.h"
 
 #include "lldb/Core/Debugger.h"
@@ -31,7 +30,6 @@
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/UniqueCStringMap.h"
 #include "lldb/Host/StreamFile.h"
-#include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Language.h"
@@ -42,8 +40,6 @@
 #include "lldb/Utility/Flags.h"
 #include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/LLDBLog.h"
-#include "lldb/Utility/RegularExpression.h"
-#include "lldb/Utility/Scalar.h"
 #include "lldb/Utility/ThreadSafeDenseMap.h"
 
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
@@ -54,14 +50,13 @@
 #include <mutex>
 #include <optional>
 
+#include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMContext.h"
 #include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMFunctionCaller.h"
 #include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMUserExpression.h"
 #include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMUtilityFunction.h"
 
 using namespace lldb;
 using namespace lldb_private;
-using namespace lldb_private::dwarf;
-using namespace lldb_private::plugin::dwarf;
 using llvm::StringSwitch;
 
 LLDB_PLUGIN_DEFINE(TypeSystemMiniLLVM)
@@ -73,143 +68,9 @@ TypeSystemMiniLLVMSupportsLanguage(lldb::LanguageType language) {
   return language == eLanguageTypeMiniLLVM;
 }
 
-enum class LongDoubleType {
-  Float64,
-  Float80, // 80bit x87 float
-  Float128,
-  DoubleDouble, // power pc 2xdouble for long double
-};
-
-enum class WCharType {
-  SignedInt32,
-  UnsignedInt16,
-};
-
 } // namespace
 
-namespace lldb_private {
-
-struct MiniLLVMTargetInfo {
-  int intWidth, intAlign;
-  int longWidth, longAlign;
-  int longLongWidth, longLongAlign;
-  int pointerWidth, pointerAlign;
-  int int128Align;
-  int longDoubleWidth;
-  int longDoubleAlign;
-  LongDoubleType longDoubleType;
-  WCharType wcharType;
-  const char *dataLayout;
-  
-  constexpr MiniLLVMTargetInfo()
-      : intWidth(32), intAlign(32), longWidth(32), longAlign(32),
-        longLongWidth(64), longLongAlign(64), pointerWidth(32),
-        pointerAlign(32), int128Align(128), longDoubleWidth(64),
-        longDoubleAlign(64), longDoubleType(LongDoubleType::Float64),
-        wcharType(WCharType::SignedInt32),
-        dataLayout("") {}
-};
-
-static const MiniLLVMTargetInfo defaultInfo = {};
-
-static MiniLLVMTargetInfo *getTargetInfoForType(const llvm::Triple &triple) {
-  if (triple.getArch() == llvm::Triple::aarch64) {
-    if (triple.isOSDarwin()) {
-      static MiniLLVMTargetInfo result{};
-      result.longWidth = result.longAlign = 64;
-      result.pointerWidth = result.pointerAlign = 64;
-      result.longDoubleWidth = result.longDoubleAlign = 64;
-      result.longDoubleType = LongDoubleType::Float64;
-      result.wcharType = WCharType::SignedInt32;
-      result.dataLayout = "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-"
-                          "i128:128-n32:64-S128-Fn32";
-      return &result;
-    }
-  }
-  if (triple.getArch() == llvm::Triple::x86_64) {
-    if (triple.isOSDarwin() || triple.isOSBinFormatMachO()) {
-      static MiniLLVMTargetInfo result = {};
-      result.longWidth = result.longAlign = 64;
-      result.pointerWidth = result.pointerAlign = 64;
-      result.longDoubleWidth = result.longDoubleAlign = 128;
-      result.longDoubleType = LongDoubleType::Float80;
-      result.wcharType = WCharType::SignedInt32;
-      result.dataLayout = "e-m:o-p270:32:32-p271:32:32-p272:64:64-"
-                          "i64:64-i128:128-f80:128-n8:16:32:64-S128";
-      return &result;
-    }
-    switch (triple.getOS()) {
-    case llvm::Triple::Linux: {
-      if (!triple.isX32()) {
-        static MiniLLVMTargetInfo result = {};
-        result.longWidth = result.longAlign = 64;
-        result.pointerWidth = result.pointerAlign = 64;
-        result.longDoubleWidth = result.longDoubleAlign = 128;
-        result.wcharType = WCharType::SignedInt32;
-        result.dataLayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-"
-                            "i128:128-f80:128-n8:16:32:64-S128";
-        return &result;
-      }
-      break;
-    }
-    case llvm::Triple::Win32: {
-      if (triple.getEnvironment() != llvm::Triple::Cygnus &&
-          triple.getEnvironment() != llvm::Triple::GNU) {
-        if (triple.isOSBinFormatCOFF()) {
-          static MiniLLVMTargetInfo result = {};
-          result.longWidth = result.longAlign = 32;
-          result.pointerWidth = result.pointerAlign = 64;
-          result.longDoubleWidth = result.longDoubleAlign = 64;
-          result.longDoubleType = LongDoubleType::Float64;
-          result.wcharType = WCharType::UnsignedInt16;
-          result.dataLayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-"
-                              "i128:128-f80:128-n8:16:32:64-S128";
-          return &result;
-        }
-      }
-      break;
-    }
-    default:
-      break;
-    }
-  }
-  return nullptr;
-}
-
-struct MiniLLVMContext {
-  llvm::LLVMContext m_llvm_context;
-  llvm::Module m_module;
-  std::string m_triple;
-  const MiniLLVMTargetInfo *targetInfo;
-
-  MiniLLVMContext(llvm::StringRef name, llvm::Triple &triple)
-      : m_module(name, m_llvm_context) {
-
-    m_triple = triple.str();
-    m_module.setTargetTriple(m_triple);
-    targetInfo = getTargetInfoForType(triple);
-
-    if (targetInfo == nullptr) {
-      targetInfo = &defaultInfo;
-      std::string err =
-          llvm::formatv(
-              "Failed to initialize builtin MiniLLVM types for target '{0}'. "
-              "Printing variables may behave unexpectedly.",
-              m_triple)
-              .str();
-
-      LLDB_LOG(GetLog(LLDBLog::Expressions), err.c_str());
-
-      static std::once_flag s_uninitialized_target_warning;
-      Debugger::ReportWarning(std::move(err), /*debugger_id=*/std::nullopt,
-                              &s_uninitialized_target_warning);
-    } else {
-      m_module.setDataLayout(targetInfo->dataLayout);
-    }
-  }
-};
-
-} // namespace lldb_private
+namespace lldb_private {} // namespace lldb_private
 
 char TypeSystemMiniLLVM::ID;
 
@@ -334,6 +195,11 @@ llvm::Module &TypeSystemMiniLLVM::getLLVMModule() const {
 const MiniLLVMTargetInfo &TypeSystemMiniLLVM::getTargetInfo() const {
   assert(m_context);
   return *m_context->targetInfo;
+}
+
+const MiniLLVMContext *TypeSystemMiniLLVM::getMiniLLVMContext() const {
+  assert(m_context);
+  return &*m_context;
 }
 
 namespace lldb_private {
@@ -1184,7 +1050,8 @@ TypeSystemMiniLLVM::GetFunctionReturnType(lldb::opaque_compiler_type_t type) {
   if (type) {
     auto *llvm_type = GetMiniType(type).getType();
     if (llvm_type->isFunctionTy()) {
-      return GetType({llvm::cast<llvm::FunctionType>(llvm_type)->getReturnType()});
+      return GetType(
+          {llvm::cast<llvm::FunctionType>(llvm_type)->getReturnType()});
     }
   }
   return CompilerType();
@@ -1286,7 +1153,7 @@ TypeSystemMiniLLVM::GetBasicTypeFromAST(lldb::BasicType basic_type) {
     return GetType({llvm::Type::getInt8Ty(getLLVMContext()), false});
   case eBasicTypeWChar:
     switch (getTargetInfo().wcharType) {
-    case WCharType::SignedInt32:
+    case lldb_private::WCharType::SignedInt32:
       return GetType({llvm::Type::getInt32Ty(getLLVMContext()), true});
     case WCharType::UnsignedInt16:
       return GetType({llvm::Type::getInt16Ty(getLLVMContext()), false});
@@ -1309,20 +1176,28 @@ TypeSystemMiniLLVM::GetBasicTypeFromAST(lldb::BasicType basic_type) {
     return GetType({llvm::Type::getInt16Ty(getLLVMContext()), false});
   case eBasicTypeInt:
     return GetType(
-        {llvm::Type::getIntNTy(getLLVMContext(), getTargetInfo().intWidth), true});
+        {llvm::Type::getIntNTy(getLLVMContext(), getTargetInfo().intWidth),
+         true});
   case eBasicTypeUnsignedInt:
     return GetType(
-        {llvm::Type::getIntNTy(getLLVMContext(), getTargetInfo().intWidth), false});
+        {llvm::Type::getIntNTy(getLLVMContext(), getTargetInfo().intWidth),
+         false});
   case eBasicTypeLong:
     return GetType(
-        {llvm::Type::getIntNTy(getLLVMContext(), getTargetInfo().longWidth), false});
+        {llvm::Type::getIntNTy(getLLVMContext(), getTargetInfo().longWidth),
+         false});
   case eBasicTypeUnsignedLong:
     return GetType(
-        {llvm::Type::getIntNTy(getLLVMContext(), getTargetInfo().longWidth), false});
+        {llvm::Type::getIntNTy(getLLVMContext(), getTargetInfo().longWidth),
+         false});
   case eBasicTypeLongLong:
-    return GetType({llvm::Type::getIntNTy(getLLVMContext(), getTargetInfo().longLongWidth), true});
+    return GetType(
+        {llvm::Type::getIntNTy(getLLVMContext(), getTargetInfo().longLongWidth),
+         true});
   case eBasicTypeUnsignedLongLong:
-    return GetType({llvm::Type::getIntNTy(getLLVMContext(), getTargetInfo().longLongWidth), false});
+    return GetType(
+        {llvm::Type::getIntNTy(getLLVMContext(), getTargetInfo().longLongWidth),
+         false});
   case eBasicTypeInt128:
     return GetType({llvm::Type::getInt128Ty(getLLVMContext()), true});
   case eBasicTypeUnsignedInt128:
@@ -1979,7 +1854,7 @@ const std::nullopt_t ScratchTypeSystemMiniLLVM::DefaultAST = std::nullopt;
 ScratchTypeSystemMiniLLVM::ScratchTypeSystemMiniLLVM(Target &target,
                                                      llvm::Triple triple)
     : TypeSystemMiniLLVM("scratch ASTContext", triple), m_triple(triple),
-      m_target_wp(target.shared_from_this())  {}
+      m_target_wp(target.shared_from_this()) {}
 
 void ScratchTypeSystemMiniLLVM::Finalize() { TypeSystemMiniLLVM::Finalize(); }
 
@@ -2048,7 +1923,8 @@ UserExpression *ScratchTypeSystemMiniLLVM::GetUserExpression(
     return nullptr;
 
   return new MiniLLVMUserExpression(*target_sp.get(), expr, prefix, language,
-                                 desired_type, options, ctx_obj);
+                                    desired_type, options, ctx_obj,
+                                    getMiniLLVMContext());
 }
 
 FunctionCaller *ScratchTypeSystemMiniLLVM::GetFunctionCaller(
@@ -2063,7 +1939,7 @@ FunctionCaller *ScratchTypeSystemMiniLLVM::GetFunctionCaller(
     return nullptr;
 
   return new MiniLLVMFunctionCaller(*process, return_type, function_address,
-                                 arg_value_list, name);
+                                    arg_value_list, name, getMiniLLVMContext());
 }
 
 std::unique_ptr<UtilityFunction>
@@ -2075,7 +1951,7 @@ ScratchTypeSystemMiniLLVM::CreateUtilityFunction(std::string text,
 
   return std::make_unique<MiniLLVMUtilityFunction>(
       *target_sp.get(), std::move(text), std::move(name),
-      target_sp->GetDebugUtilityExpression());
+      target_sp->GetDebugUtilityExpression(), getMiniLLVMContext());
 }
 
 static llvm::StringRef

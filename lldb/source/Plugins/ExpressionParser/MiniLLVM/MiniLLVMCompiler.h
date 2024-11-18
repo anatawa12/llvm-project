@@ -9,6 +9,8 @@
 #ifndef LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_MINILLVM_MINILLVMCOMPILER_H
 #define LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_MINILLVM_MINILLVMCOMPILER_H
 
+#include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMContext.h"
+
 #include "lldb/lldb-forward.h"
 #include "lldb/lldb-private.h"
 #include "llvm/IR/IRBuilder.h"
@@ -23,7 +25,9 @@ class MiniLLVMCompiler {
   std::vector<llvm::BasicBlock *> blocks;
   llvm::StringMap<llvm::Value *> named_values;
   llvm::StringMap<llvm::Type *> named_types;
-  std::vector<std::tuple<llvm::PHINode *, llvm::BasicBlock *, llvm::StringRef, int>> phi_updates;
+  std::vector<
+      std::tuple<llvm::PHINode *, llvm::BasicBlock *, llvm::StringRef, int>>
+      phi_updates;
   int line_num;
 
   bool GetType(llvm::StringRef name, llvm::Type *&type);
@@ -32,11 +36,12 @@ class MiniLLVMCompiler {
   bool ParseLine(std::vector<llvm::StringRef> &tokens);
 
 public:
-  MiniLLVMCompiler(lldb_private::DiagnosticManager &diagnostic_manager);
+  MiniLLVMCompiler(lldb_private::DiagnosticManager &diagnostic_manager,
+                   const lldb_private::MiniLLVMContext *context);
 
   bool ParseAndEmit(llvm::StringRef text);
-  lldb_private::Status Compile(llvm::StringRef target_name, lldb::addr_t &func_addr,
-                               lldb::addr_t &func_end,
+  lldb_private::Status Compile(llvm::StringRef target_name,
+                               lldb::addr_t &func_addr, lldb::addr_t &func_end,
                                lldb::IRExecutionUnitSP &execution_unit_sp,
                                lldb_private::ExecutionContext &exe_ctx);
 };

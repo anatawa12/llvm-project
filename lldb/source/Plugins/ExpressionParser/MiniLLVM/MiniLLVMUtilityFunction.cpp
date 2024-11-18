@@ -28,8 +28,9 @@ char MiniLLVMUtilityFunction::ID;
 
 MiniLLVMUtilityFunction::MiniLLVMUtilityFunction(
     ExecutionContextScope &exe_scope, std::string text, std::string name,
-    bool enable_debugging)
-    : UtilityFunction(exe_scope, text, std::move(name), enable_debugging) {}
+    bool enable_debugging, const MiniLLVMContext *miniContext)
+    : UtilityFunction(exe_scope, text, std::move(name), enable_debugging),
+      m_mini_context(miniContext) {}
 
 MiniLLVMUtilityFunction::~MiniLLVMUtilityFunction() = default;
 
@@ -83,7 +84,7 @@ bool MiniLLVMUtilityFunction::Install(DiagnosticManager &diagnostic_manager,
 
   const bool generate_debug_info = true;
 
-  MiniLLVMCompiler compiler(diagnostic_manager);
+  MiniLLVMCompiler compiler(diagnostic_manager, m_mini_context);
 
   if (!compiler.ParseAndEmit(m_function_text)) {
     return false;

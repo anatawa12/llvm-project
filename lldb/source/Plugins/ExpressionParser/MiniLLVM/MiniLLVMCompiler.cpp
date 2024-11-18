@@ -52,11 +52,16 @@ bool MiniLLVMCompiler::GetInt(llvm::StringRef name, int &value) {
 }
 
 MiniLLVMCompiler::MiniLLVMCompiler(
-    lldb_private::DiagnosticManager &diagnostic_manager)
+    lldb_private::DiagnosticManager &diagnostic_manager,
+    const lldb_private::MiniLLVMContext *miniContext)
     : diagnostic_manager(diagnostic_manager) {
   context = std::make_unique<LLVMContext>();
   builder = std::make_unique<IRBuilder<>>(*context);
   module = std::make_unique<Module>("mini-llvm-compiled", *context);
+  module->setTargetTriple(miniContext->m_triple);
+  if (miniContext->targetInfo) {
+    module->setDataLayout(miniContext->targetInfo->dataLayout);
+  }
 
   // built-in types
   named_types["void"] = Type::getVoidTy(*context);

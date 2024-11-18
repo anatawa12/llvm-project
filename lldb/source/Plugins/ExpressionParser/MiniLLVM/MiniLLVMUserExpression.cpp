@@ -34,9 +34,11 @@ char MiniLLVMUserExpression::ID;
 MiniLLVMUserExpression::MiniLLVMUserExpression(
     ExecutionContextScope &exe_scope, llvm::StringRef expr,
     llvm::StringRef prefix, SourceLanguage language, ResultType desired_type,
-    const EvaluateExpressionOptions &options, ValueObject *ctx_obj)
+    const EvaluateExpressionOptions &options, ValueObject *ctx_obj,
+    const MiniLLVMContext *miniContext)
     : LLVMUserExpression(exe_scope, expr, prefix, language, desired_type,
-                         options) {
+                         options),
+      m_mini_context(miniContext) {
   switch (m_language.name) {
   case llvm::dwarf::DW_LNAME_C_plus_plus:
     m_allow_cxx = true;
@@ -111,7 +113,7 @@ bool MiniLLVMUserExpression::TryParse(
     bool generate_debug_info) {
   m_materializer_up = std::make_unique<Materializer>();
 
-  MiniLLVMCompiler compiler(diagnostic_manager);
+  MiniLLVMCompiler compiler(diagnostic_manager, m_mini_context);
 
   if (!compiler.ParseAndEmit(m_transformed_text)) {
     return false;

@@ -1,4 +1,5 @@
-//===-- MiniLLVMUtilityFunction.h ----------------------------------*- C++ -*-===//
+//===-- MiniLLVMUtilityFunction.h ----------------------------------*- C++
+//-*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,6 +13,8 @@
 #include <map>
 #include <string>
 #include <vector>
+
+#include "MiniLLVMContext.h"
 
 #include "lldb/Expression/UtilityFunction.h"
 #include "lldb/lldb-forward.h"
@@ -50,12 +53,16 @@ public:
   /// \param[in] enable_debugging
   ///     Enable debugging of this function.
   MiniLLVMUtilityFunction(ExecutionContextScope &exe_scope, std::string text,
-                       std::string name, bool enable_debugging);
+                          std::string name, bool enable_debugging,
+                          const MiniLLVMContext *miniContext);
 
   ~MiniLLVMUtilityFunction() override;
 
   bool Install(DiagnosticManager &diagnostic_manager,
                ExecutionContext &exe_ctx) override;
+
+private:
+  const MiniLLVMContext *m_mini_context;
 };
 
 } // namespace lldb_private

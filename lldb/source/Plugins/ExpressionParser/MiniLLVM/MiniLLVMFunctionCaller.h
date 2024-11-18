@@ -1,4 +1,5 @@
-//===-- MiniLLVMFunctionCaller.h -----------------------------------*- C++ -*-===//
+//===-- MiniLLVMFunctionCaller.h -----------------------------------*- C++
+//-*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -8,6 +9,8 @@
 
 #ifndef LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGFUNCTIONCALLER_H
 #define LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGFUNCTIONCALLER_H
+
+#include "MiniLLVMCompiler.h"
 
 #include "lldb/Core/Address.h"
 #include "lldb/Core/Value.h"
@@ -27,8 +30,8 @@ class MiniLLVMFunctionCallerExpressionParser;
 /// "lldb/Expression/MiniLLVMFunctionCaller.h" Encapsulates a function that can
 /// be called.
 ///
-/// A given MiniLLVMFunctionCaller object can handle a single function signature.
-/// Once constructed, it can set up any number of concurrent calls to
+/// A given MiniLLVMFunctionCaller object can handle a single function
+/// signature. Once constructed, it can set up any number of concurrent calls to
 /// functions with that signature.
 ///
 /// It performs the call by synthesizing a structure that contains the pointer
@@ -86,9 +89,10 @@ public:
   ///     The default values to use when calling this function.  Can
   ///     be overridden using WriteFunctionArguments().
   MiniLLVMFunctionCaller(ExecutionContextScope &exe_scope,
-                      const CompilerType &return_type,
-                      const Address &function_address,
-                      const ValueList &arg_value_list, const char *name);
+                         const CompilerType &return_type,
+                         const Address &function_address,
+                         const ValueList &arg_value_list, const char *name,
+                         const MiniLLVMContext *targetInfo);
 
   ~MiniLLVMFunctionCaller() override;
 
@@ -111,6 +115,7 @@ protected:
   const char *GetWrapperStructName() { return m_wrapper_struct_name.c_str(); }
 
 private:
+  const MiniLLVMContext *m_mini_context;
 };
 
 } // namespace lldb_private
