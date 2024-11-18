@@ -81,9 +81,11 @@ ModuleListProperties::ModuleListProperties() {
                                            [this] { UpdateSymlinkMappings(); });
 
   llvm::SmallString<128> path;
+#if CONSOLE_LOG_SAVER
   if (clang::driver::Driver::getDefaultModuleCachePath(path)) {
     lldbassert(SetClangModulesCachePath(FileSpec(path)));
   }
+#endif // CONSOLE_LOG_SAVER
 
   path.clear();
   if (llvm::sys::path::cache_directory(path)) {

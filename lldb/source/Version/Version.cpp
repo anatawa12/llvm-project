@@ -56,13 +56,23 @@ const char *lldb_private::GetVersion() {
       g_version_str += ")";
     }
 
+#if CONSOLE_LOG_SAVER
     std::string clang_rev(clang::getClangRevision());
     if (clang_rev.length() > 0) {
       g_version_str += "\n  clang revision ";
       g_version_str += clang_rev;
     }
+#endif // CONSOLE_LOG_SAVER
 
+#if CONSOLE_LOG_SAVER
     std::string llvm_rev(clang::getLLVMRevision());
+#else
+#ifdef LLVM_REVISION
+    std::string llvm_rev(LLVM_REVISION);
+#else
+    std::string llvm_rev("");
+#endif
+#endif // CONSOLE_LOG_SAVER
     if (llvm_rev.length() > 0) {
       g_version_str += "\n  llvm revision ";
       g_version_str += llvm_rev;
