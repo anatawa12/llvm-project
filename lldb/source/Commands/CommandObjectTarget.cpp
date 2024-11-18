@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if CONSOLE_LOG_SAVER
 #include "CommandObjectTarget.h"
 
 #include "lldb/Core/Address.h"
@@ -5331,3 +5332,5 @@ CommandObjectMultiwordTarget::CommandObjectMultiwordTarget(
 }
 
 CommandObjectMultiwordTarget::~CommandObjectMultiwordTarget() = default;
+#endif // CONSOLE_LOG_SAVER
+

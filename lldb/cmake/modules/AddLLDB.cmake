@@ -155,7 +155,7 @@ function(add_lldb_library name)
   # but it is simple enough to make all of LLDB depend on some of those
   # headers without negatively impacting much of anything.
   if(NOT LLDB_BUILT_STANDALONE)
-    add_dependencies(${name} clang-tablegen-targets)
+    #add_dependencies(${name} clang-tablegen-targets)
   endif()
 
   # Add in any extra C++ compilation flags for this library.

@@ -10,7 +10,11 @@
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 
+#if CONSOLE_LOG_SAVER
 #include "clang/CodeGen/ModuleBuilder.h"
+#else
+inline constexpr llvm::StringRef ClangTrapPrefix = "__clang_trap_msg";
+#endif // CONSOLE_LOG_SAVER
 
 using namespace llvm;
 using namespace lldb;

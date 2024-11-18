@@ -348,6 +348,7 @@ std::optional<std::string> Platform::GetOSKernelDescription() {
   return GetRemoteOSKernelDescription();
 }
 
+#if CONSOLE_LOG_SAVER
 void Platform::AddClangModuleCompilationOptions(
     Target *target, std::vector<std::string> &options) {
   std::vector<std::string> default_compilation_options = {
@@ -356,6 +357,7 @@ void Platform::AddClangModuleCompilationOptions(
   options.insert(options.end(), default_compilation_options.begin(),
                  default_compilation_options.end());
 }
+#endif // CONSOLE_LOG_SAVER
 
 FileSpec Platform::GetWorkingDirectory() {
   if (IsHost()) {

@@ -31,7 +31,9 @@
 #include "lldb/Host/windows/PosixApi.h"
 #endif
 
+#if CONSOLE_LOG_SAVER
 #include "clang/Driver/Driver.h"
+#endif // CONSOLE_LOG_SAVER
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Threading.h"

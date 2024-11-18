@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if CONSOLE_LOG_SAVER
 #ifndef LLDB_SOURCE_COMMANDS_COMMANDOBJECTTARGET_H
 #define LLDB_SOURCE_COMMANDS_COMMANDOBJECTTARGET_H
 
@@ -25,3 +26,4 @@ public:
 } // namespace lldb_private
 
 #endif // LLDB_SOURCE_COMMANDS_COMMANDOBJECTTARGET_H
+#endif // CONSOLE_LOG_SAVER

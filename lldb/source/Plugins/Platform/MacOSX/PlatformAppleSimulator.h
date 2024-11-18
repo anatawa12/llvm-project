@@ -96,12 +96,14 @@ public:
   uint32_t FindProcesses(const ProcessInstanceInfoMatch &match_info,
                          ProcessInstanceInfoList &process_infos) override;
 
+#if CONSOLE_LOG_SAVER
   void
   AddClangModuleCompilationOptions(Target *target,
                                    std::vector<std::string> &options) override {
     return PlatformDarwin::AddClangModuleCompilationOptionsForSDKType(
         target, options, m_sdk_type);
   }
+#endif // CONSOLE_LOG_SAVER
 
 protected:
   const char *m_class_name;

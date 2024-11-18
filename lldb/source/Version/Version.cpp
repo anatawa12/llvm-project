@@ -9,7 +9,9 @@
 #include "lldb/Version/Version.h"
 #include "VCSVersion.inc"
 #include "lldb/Version/Version.inc"
+#if CONSOLE_LOG_SAVER
 #include "clang/Basic/Version.h"
+#endif // CONSOLE_LOG_SAVER
 
 static const char *GetLLDBVersion() {
 #ifdef LLDB_FULL_VERSION_STRING

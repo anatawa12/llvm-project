@@ -63,12 +63,14 @@ public:
 
   ConstString GetSDKDirectory(Target &target) override;
 
+#if CONSOLE_LOG_SAVER
   void
   AddClangModuleCompilationOptions(Target *target,
                                    std::vector<std::string> &options) override {
     return PlatformDarwin::AddClangModuleCompilationOptionsForSDKType(
         target, options, XcodeSDK::Type::MacOSX);
   }
+#endif // CONSOLE_LOG_SAVER
 
 protected:
   llvm::StringRef GetDeviceSupportDirectoryName() override;

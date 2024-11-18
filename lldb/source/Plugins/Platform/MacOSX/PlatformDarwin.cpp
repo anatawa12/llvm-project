@@ -1027,6 +1027,7 @@ PlatformDarwin::ExtractAppSpecificInfo(Process &process) {
   return dict_sp;
 }
 
+#if CONSOLE_LOG_SAVER
 void PlatformDarwin::AddClangModuleCompilationOptionsForSDKType(
     Target *target, std::vector<std::string> &options, XcodeSDK::Type sdk_type) {
   const std::vector<std::string> apple_arguments = {
@@ -1148,6 +1149,7 @@ void PlatformDarwin::AddClangModuleCompilationOptionsForSDKType(
     options.push_back(sysroot_spec.GetPath());
   }
 }
+#endif
 
 ConstString PlatformDarwin::GetFullNameForDylib(ConstString basename) {
   if (basename.IsEmpty())

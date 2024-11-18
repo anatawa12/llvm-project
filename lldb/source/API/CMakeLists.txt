@@ -142,6 +142,7 @@ add_lldb_library(liblldb STATIC ${option_framework}
     ${LLDB_ALL_PLUGINS}
   LINK_COMPONENTS
     Support
+    ${LLVM_TARGETS_TO_BUILD}
 
   ${option_install_prefix}
 )
@@ -267,6 +268,7 @@ if (NOT MSVC)
   )
 endif()
 
+if (false)
 # The Clang expression parser in LLDB requires the Clang resource directory to function.
 if (TARGET clang-resource-headers)
   # If building alongside Clang, just add a dependency to ensure it is build together with liblldb.
@@ -287,6 +289,7 @@ else()
     )
   endif()
 endif()
+endif ()
 
 if(LLDB_BUILD_FRAMEWORK)
   include(LLDBFramework)

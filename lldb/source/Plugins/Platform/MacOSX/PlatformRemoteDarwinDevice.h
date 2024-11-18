@@ -51,12 +51,14 @@ public:
                          llvm::SmallVectorImpl<lldb::ModuleSP> *old_modules,
                          bool *did_create_ptr) override;
 
+#if CONSOLE_LOG_SAVER
   void
   AddClangModuleCompilationOptions(Target *target,
                                    std::vector<std::string> &options) override {
     return PlatformDarwin::AddClangModuleCompilationOptionsForSDKType(
         target, options, XcodeSDK::Type::iPhoneOS);
   }
+#endif // CONSOLE_LOG_SAVER
 
 protected:
   std::string m_build_update;

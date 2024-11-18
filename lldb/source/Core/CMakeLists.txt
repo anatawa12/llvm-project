@@ -57,7 +57,7 @@ add_lldb_library(lldbCore
   Value.cpp
 
   DEPENDS
-    clang-tablegen-targets
+    #clang-tablegen-targets
 
   LINK_LIBS
     lldbBreakpoint

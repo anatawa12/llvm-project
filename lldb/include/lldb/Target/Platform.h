@@ -520,11 +520,13 @@ public:
   // right Clang flags for your platform.
   virtual bool SupportsModules() { return false; }
 
+#if CONSOLE_LOG_SAVER
   // Appends the platform-specific options required to find the modules for the
   // current platform.
   virtual void
   AddClangModuleCompilationOptions(Target *target,
                                    std::vector<std::string> &options);
+#endif // CONSOLE_LOG_SAVER
 
   FileSpec GetWorkingDirectory();
 

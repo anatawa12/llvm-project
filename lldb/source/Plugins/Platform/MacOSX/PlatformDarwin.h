@@ -184,10 +184,12 @@ protected:
 
   static FileSpec GetSDKDirectoryForModules(XcodeSDK::Type sdk_type);
 
+#if CONSOLE_LOG_SAVER
   void
   AddClangModuleCompilationOptionsForSDKType(Target *target,
                                              std::vector<std::string> &options,
                                              XcodeSDK::Type sdk_type);
+#endif // CONSOLE_LOG_SAVER
 
   Status FindBundleBinaryInExecSearchPaths(
       const ModuleSpec &module_spec, Process *process,
