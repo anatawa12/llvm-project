@@ -210,11 +210,9 @@ public:
 
   static lldb::BasicType GetBasicTypeEnumeration(llvm::StringRef name);
 
-#ifdef CONSOLE_LOG_SAVER
   CompilerType
   GetBuiltinTypeForDWARFEncodingAndBitSize(llvm::StringRef type_name,
                                            uint32_t dw_ate, uint32_t bit_size);
-#endif
 
   CompilerType GetCStringType(bool is_const);
 
@@ -522,11 +520,9 @@ public:
                                               size_t bit_size);
 
   // TypeSystem methods
-#if CONSOLE_LOG_SAVER
   plugin::dwarf::DWARFASTParser *GetDWARFParser() override;
   PDBASTParser *GetPDBParser() override;
   npdb::PdbAstBuilder *GetNativePDBParser() override;
-#endif
 
   // TypeSystemClang callbacks for external source lookups.
   void CompleteTagDecl(clang::TagDecl *);
@@ -619,11 +615,9 @@ public:
   static clang::NamespaceDecl *
   DeclContextGetAsNamespaceDecl(const CompilerDeclContext &dc);
 
-#ifdef CONSOLE_LOG_SAVER
   static std::optional<ClangASTMetadata>
   DeclContextGetMetaData(const CompilerDeclContext &dc,
                          const clang::Decl *object);
-#endif
 
   static clang::ASTContext *
   DeclContextGetTypeSystemClang(const CompilerDeclContext &dc);
@@ -1197,11 +1191,9 @@ private:
   std::unique_ptr<clang::Builtin::Context> m_builtins_up;
   std::unique_ptr<clang::HeaderSearch> m_header_search_up;
   std::unique_ptr<clang::ModuleMap> m_module_map_up;
-#if CONSOLE_LOG_SAVER
   std::unique_ptr<DWARFASTParserClang> m_dwarf_ast_parser_up;
   std::unique_ptr<PDBASTParser> m_pdb_ast_parser_up;
   std::unique_ptr<npdb::PdbAstBuilder> m_native_pdb_ast_parser_up;
-#endif
   std::unique_ptr<clang::MangleContext> m_mangle_ctx_up;
   uint32_t m_pointer_byte_size = 0;
   bool m_ast_owned = false;
@@ -1324,12 +1316,10 @@ public:
 
   PersistentExpressionState *GetPersistentExpressionState() override;
 
-#ifdef CONSOLE_LOG_SAVER
   /// Unregisters the given ASTContext as a source from the scratch AST (and
   /// all sub-ASTs).
   /// \see ClangASTImporter::ForgetSource
   void ForgetSource(clang::ASTContext *src_ctx, ClangASTImporter &importer);
-#endif
 
   // llvm casting support
   bool isA(const void *ClassID) const override {
@@ -1338,9 +1328,7 @@ public:
   static bool classof(const TypeSystem *ts) { return ts->isA(&ID); }
 
 private:
-#ifdef CONSOLE_LOG_SAVER
   std::unique_ptr<ClangASTSource> CreateASTSource();
-#endif
   /// Returns the requested sub-AST.
   /// Will lazily create the sub-AST if it hasn't been created before.
   TypeSystemClang &GetIsolatedAST(IsolatedASTKind feature);
@@ -1353,11 +1341,9 @@ private:
   /// The persistent variables associated with this process for the expression
   /// parser.
   std::unique_ptr<ClangPersistentVariables> m_persistent_variables;
-#ifdef CONSOLE_LOG_SAVER
   /// The ExternalASTSource that performs lookups and completes minimally
   /// imported types.
   std::unique_ptr<ClangASTSource> m_scratch_ast_source_up;
-#endif
 
   // FIXME: GCC 5.x doesn't support enum as map keys.
   typedef int IsolatedASTKey;

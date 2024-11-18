@@ -78,19 +78,13 @@
 
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
 #include "Plugins/SymbolFile/DWARF/DWARFASTParserClang.h"
-#ifdef CONSOLE_LOG_SAVER
 #include "Plugins/SymbolFile/PDB/PDBASTParser.h"
 #include "Plugins/SymbolFile/NativePDB/PdbAstBuilder.h"
-#endif
 
 #include <cstdio>
 
 #include <mutex>
 #include <optional>
-
-#ifndef CONSOLE_LOG_SAVER
-#include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMUtilityFunction.h"
-#endif
 
 using namespace lldb;
 using namespace lldb_private;
@@ -122,9 +116,6 @@ TypeSystemClangSupportsLanguage(lldb::LanguageType language) {
          language == eLanguageTypeRust ||
          // Use Clang for D until there is a proper language plugin for it
          language == eLanguageTypeD ||
-#ifndef CONSOLE_LOG_SAVER
-         language == eLanguageTypeMiniLLVM || // TODO: split to another type system
-#endif
          // Open Dylan compiler debug info is designed to be Clang-compatible
          language == eLanguageTypeDylan;
 }
@@ -912,7 +903,6 @@ CompilerType TypeSystemClang::GetBasicType(lldb::BasicType basic_type) {
   return CompilerType();
 }
 
-#ifdef CONSOLE_LOG_SAVER
 CompilerType TypeSystemClang::GetBuiltinTypeForDWARFEncodingAndBitSize(
     llvm::StringRef type_name, uint32_t dw_ate, uint32_t bit_size) {
   ASTContext &ast = getASTContext();
@@ -1133,7 +1123,6 @@ CompilerType TypeSystemClang::GetBuiltinTypeForDWARFEncodingAndBitSize(
            type_name, dw_ate, bit_size);
   return CompilerType();
 }
-#endif
 
 CompilerType TypeSystemClang::GetCStringType(bool is_const) {
   ASTContext &ast = getASTContext();
@@ -4781,14 +4770,12 @@ TypeSystemClang::GetObjCBitSize(QualType qual_type,
   assert(qual_type->isObjCObjectOrInterfaceType());
   ExecutionContext exe_ctx(exe_scope);
   if (Process *process = exe_ctx.GetProcessPtr()) {
-#ifdef CONSOLE_LOG_SAVER
     if (ObjCLanguageRuntime *objc_runtime =
             ObjCLanguageRuntime::Get(*process)) {
       if (std::optional<uint64_t> bit_size =
               objc_runtime->GetTypeBitSize(GetType(qual_type)))
         return *bit_size;
     }
-#endif
   } else {
     static bool g_printed = false;
     if (!g_printed) {
@@ -6450,7 +6437,6 @@ llvm::Expected<CompilerType> TypeSystemClang::GetChildCompilerTypeAtIndex(
                 if (exe_ctx)
                   process = exe_ctx->GetProcessPtr();
                 if (process) {
-#ifdef CONSOLE_LOG_SAVER
                   ObjCLanguageRuntime *objc_runtime =
                       ObjCLanguageRuntime::Get(*process);
                   if (objc_runtime != nullptr) {
@@ -6458,7 +6444,6 @@ llvm::Expected<CompilerType> TypeSystemClang::GetChildCompilerTypeAtIndex(
                     child_byte_offset = objc_runtime->GetByteOffsetForIvar(
                         parent_ast_type, ivar_decl->getNameAsString().c_str());
                   }
-#endif
                 }
 
                 // Setting this to INT32_MAX to make sure we don't compute it
@@ -9085,7 +9070,6 @@ void TypeSystemClang::CompleteObjCInterfaceDecl(
   }
 }
 
-#if CONSOLE_LOG_SAVER
 DWARFASTParser *TypeSystemClang::GetDWARFParser() {
   if (!m_dwarf_ast_parser_up)
     m_dwarf_ast_parser_up = std::make_unique<DWARFASTParserClang>(*this);
@@ -9103,7 +9087,6 @@ npdb::PdbAstBuilder *TypeSystemClang::GetNativePDBParser() {
     m_native_pdb_ast_parser_up = std::make_unique<npdb::PdbAstBuilder>(*this);
   return m_native_pdb_ast_parser_up.get();
 }
-#endif
 
 bool TypeSystemClang::LayoutRecordType(
     const clang::RecordDecl *record_decl, uint64_t &bit_size,
@@ -9113,9 +9096,6 @@ bool TypeSystemClang::LayoutRecordType(
         &base_offsets,
     llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
         &vbase_offsets) {
-#ifndef CONSOLE_LOG_SAVER
-  return false;
-#else
   lldb_private::ClangASTImporter *importer = nullptr;
   if (m_dwarf_ast_parser_up)
     importer = &m_dwarf_ast_parser_up->GetClangASTImporter();
@@ -9128,7 +9108,6 @@ bool TypeSystemClang::LayoutRecordType(
 
   return importer->LayoutRecordType(record_decl, bit_size, alignment,
                                     field_offsets, base_offsets, vbase_offsets);
-#endif
 }
 
 // CompilerDecl override functions
@@ -9613,14 +9592,12 @@ TypeSystemClang::DeclContextGetAsNamespaceDecl(const CompilerDeclContext &dc) {
   return nullptr;
 }
 
-#ifdef CONSOLE_LOG_SAVER
 std::optional<ClangASTMetadata>
 TypeSystemClang::DeclContextGetMetaData(const CompilerDeclContext &dc,
                                         const Decl *object) {
   TypeSystemClang *ast = llvm::cast<TypeSystemClang>(dc.GetTypeSystem());
   return ast->GetMetadata(object);
 }
-#endif // CONSOLE_LOG_SAVER
 
 clang::ASTContext *
 TypeSystemClang::DeclContextGetTypeSystemClang(const CompilerDeclContext &dc) {
@@ -9666,10 +9643,9 @@ public:
   /// \param triple The triple used for the TypeSystemClang instance.
   /// \param ast_source The ClangASTSource that should be used to complete
   ///                   type information.
-#ifdef CONSOLE_LOG_SAVER
   SpecializedScratchAST(llvm::StringRef name, llvm::Triple triple,
                         std::unique_ptr<ClangASTSource> ast_source)
-      : TypeSystemClang(name, triple)
+      : TypeSystemClang(name, triple),
         m_scratch_ast_source_up(std::move(ast_source)) {
     // Setup the ClangASTSource to complete this AST.
     m_scratch_ast_source_up->InstallASTContext(*this);
@@ -9677,16 +9653,9 @@ public:
         m_scratch_ast_source_up->CreateProxy());
     SetExternalSource(proxy_ast_source);
   }
-#else
-  SpecializedScratchAST(llvm::StringRef name, llvm::Triple triple)
-      : TypeSystemClang(name, triple) {
-  }
-#endif
 
-#ifdef CONSOLE_LOG_SAVER
   /// The ExternalASTSource that performs lookups and completes types.
   std::unique_ptr<ClangASTSource> m_scratch_ast_source_up;
-#endif
 };
 } // namespace
 
@@ -9699,20 +9668,16 @@ ScratchTypeSystemClang::ScratchTypeSystemClang(Target &target,
       m_target_wp(target.shared_from_this()),
       m_persistent_variables(
           new ClangPersistentVariables(target.shared_from_this())) {
-#ifdef CONSOLE_LOG_SAVER
   m_scratch_ast_source_up = CreateASTSource();
   m_scratch_ast_source_up->InstallASTContext(*this);
   llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> proxy_ast_source(
       m_scratch_ast_source_up->CreateProxy());
   SetExternalSource(proxy_ast_source);
-#endif
 }
 
 void ScratchTypeSystemClang::Finalize() {
   TypeSystemClang::Finalize();
-#ifdef CONSOLE_LOG_SAVER
   m_scratch_ast_source_up.reset();
-#endif
 }
 
 TypeSystemClangSP
@@ -9805,18 +9770,9 @@ ScratchTypeSystemClang::CreateUtilityFunction(std::string text,
   if (!target_sp)
     return {};
 
-#ifndef CONSOLE_LOG_SAVER
-  if (text.find("#!mini-llvm") != std::string::npos) {
-    return std::make_unique<MiniLLVMUtilityFunction>(
-        *target_sp.get(), std::move(text), std::move(name),
-        target_sp->GetDebugUtilityExpression());
-  }
-  return {};
-#else
   return std::make_unique<ClangUtilityFunction>(
       *target_sp.get(), std::move(text), std::move(name),
       target_sp->GetDebugUtilityExpression());
-#endif
 }
 
 PersistentExpressionState *
@@ -9824,7 +9780,6 @@ ScratchTypeSystemClang::GetPersistentExpressionState() {
   return m_persistent_variables.get();
 }
 
-#ifdef CONSOLE_LOG_SAVER
 void ScratchTypeSystemClang::ForgetSource(ASTContext *src_ctx,
                                           ClangASTImporter &importer) {
   // Remove it as a source from the main AST.
@@ -9839,7 +9794,6 @@ std::unique_ptr<ClangASTSource> ScratchTypeSystemClang::CreateASTSource() {
       m_target_wp.lock()->shared_from_this(),
       m_persistent_variables->GetClangASTImporter());
 }
-#endif
 
 static llvm::StringRef
 GetSpecializedASTName(ScratchTypeSystemClang::IsolatedASTKind feature) {
@@ -9859,11 +9813,7 @@ TypeSystemClang &ScratchTypeSystemClang::GetIsolatedAST(
   // Couldn't find the requested sub-AST, so create it now.
   std::shared_ptr<TypeSystemClang> new_ast_sp =
       std::make_shared<SpecializedScratchAST>(GetSpecializedASTName(feature),
-#ifdef CONSOLE_LOG_SAVER
                                               m_triple, CreateASTSource());
-#else
-                                              m_triple);
-#endif
   m_isolated_asts.insert({feature, new_ast_sp});
   return *new_ast_sp;
 }

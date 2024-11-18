@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #ifndef LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFASTPARSERCLANG_H
 #define LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFASTPARSERCLANG_H
 
@@ -41,7 +42,6 @@ class SymbolFileDWARF;
 
 struct ParsedDWARFTypeAttributes;
 
-#ifdef CONSOLE_LOG_SAVER
 
 class DWARFASTParserClang : public lldb_private::plugin::dwarf::DWARFASTParser {
 public:
@@ -575,6 +575,6 @@ struct ParsedDWARFTypeAttributes {
                       ///< Is RQ_None otherwise.
 };
 
-#endif
 
 #endif // LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFASTPARSERCLANG_H
+#endif // CONSOLE_LOG_SAVER
