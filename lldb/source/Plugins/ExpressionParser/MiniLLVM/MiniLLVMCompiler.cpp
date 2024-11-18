@@ -89,12 +89,15 @@ MiniLLVMCompiler::MiniLLVMCompiler(
 }
 
 bool MiniLLVMCompiler::ParseAndEmit(llvm::StringRef text) {
-  if (!text.trim().starts_with("#!mini-llvm")) {
+  StringRef heading;
+  do {
+    std::tie(heading, text) = text.split('\n');
+  } while (heading.trim().empty());
+  if (heading.trim() != "#!mini-llvm") {
     diagnostic_manager.PutString(lldb::eSeverityError,
                                  "text must start with #!mini-llvm");
     return false;
   }
-  text = text.trim().drop_front(11); // strlen("#!mini-llvm") == 11
 
   int line_num_next = 1;
   for (const auto &line : split(text, '\n')) {
@@ -150,8 +153,17 @@ bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
   if (insn == "const") {
     auto name = tokens.at(1);
     MLGetType(2, type);
-    auto *value = ConstantInt::get(
-        type, APInt(cast<IntegerType>(type)->getBitWidth(), tokens.at(3), 10));
+    Value *value;
+    if (type == named_types["ptr"]) {
+      int bit_width = 64; // TODO: 32bit support
+      auto *constant =
+          ConstantInt::get(named_types["iptr"], APInt(bit_width, tokens.at(3), 10));
+      value = llvm::ConstantExpr::getIntToPtr(constant, type);
+    } else {
+      value =
+          ConstantInt::get(type, APInt(cast<IntegerType>(type)->getBitWidth(),
+                                       tokens.at(3), 10));
+    }
     named_values[name] = value;
   }
 

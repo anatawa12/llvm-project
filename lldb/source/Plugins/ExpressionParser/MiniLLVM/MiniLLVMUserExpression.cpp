@@ -1,4 +1,5 @@
-//===-- MiniLLVMUserExpression.cpp -------------------------------------------===//
+//===-- MiniLLVMUserExpression.cpp
+//-------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,39 +14,17 @@
 #include <map>
 #include <string>
 
+#include "MiniLLVMCompiler.h"
 #include "MiniLLVMUserExpression.h"
-
 #include "Plugins/TypeSystem/MiniLLVM/TypeSystemMiniLLVM.h"
-#include "lldb/Expression/DiagnosticManager.h"
-#include "lldb/Core/Debugger.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Expression/ExpressionSourceCode.h"
+#include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/IRExecutionUnit.h"
-#include "lldb/Expression/IRInterpreter.h"
 #include "lldb/Expression/Materializer.h"
-#include "lldb/Host/HostInfo.h"
-#include "lldb/Symbol/Block.h"
-#include "lldb/Symbol/CompileUnit.h"
-#include "lldb/Symbol/Function.h"
-#include "lldb/Symbol/ObjectFile.h"
-#include "lldb/Symbol/SymbolFile.h"
-#include "lldb/Symbol/SymbolVendor.h"
-#include "lldb/Symbol/Type.h"
-#include "lldb/Symbol/VariableList.h"
-#include "lldb/Target/ExecutionContext.h"
-#include "lldb/Target/Process.h"
-#include "lldb/Target/StackFrame.h"
-#include "lldb/Target/Target.h"
-#include "lldb/Target/ThreadPlan.h"
-#include "lldb/Target/ThreadPlanCallUserExpression.h"
-#include "lldb/Utility/ConstString.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
-#include "lldb/Utility/StreamString.h"
-#include "lldb/ValueObject/ValueObjectConstResult.h"
 
 #include "llvm/BinaryFormat/Dwarf.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 
 using namespace lldb_private;
@@ -57,8 +36,7 @@ MiniLLVMUserExpression::MiniLLVMUserExpression(
     llvm::StringRef prefix, SourceLanguage language, ResultType desired_type,
     const EvaluateExpressionOptions &options, ValueObject *ctx_obj)
     : LLVMUserExpression(exe_scope, expr, prefix, language, desired_type,
-                         options),
-      m_target_func_addr(LLDB_INVALID_ADDRESS) {
+                         options) {
   switch (m_language.name) {
   case llvm::dwarf::DW_LNAME_C_plus_plus:
     m_allow_cxx = true;
@@ -76,12 +54,53 @@ MiniLLVMUserExpression::MiniLLVMUserExpression(
 
 MiniLLVMUserExpression::~MiniLLVMUserExpression() = default;
 
-void MiniLLVMUserExpression::ScanContext(ExecutionContext &exe_ctx, Status &err) {
-}
+void MiniLLVMUserExpression::ScanContext(ExecutionContext &exe_ctx,
+                                         Status &err) {}
 
 bool MiniLLVMUserExpression::PrepareForParsing(
     DiagnosticManager &diagnostic_manager, ExecutionContext &exe_ctx,
     bool for_completion) {
+
+  if (m_options.GetExecutionPolicy() == eExecutionPolicyTopLevel) {
+    // Toplevel: !mini-llvm
+    m_transformed_text = m_expr_text;
+  } else {
+    // Non-Toplevel: !mini-llvm-expr <count of blocks>
+    // for single expression.
+    // no return is supported (for now)
+
+    auto expr = llvm::StringRef(m_expr_text);
+    llvm::StringRef heading;
+    do {
+      std::tie(heading, expr) = expr.split('\n');
+    } while (heading.trim().empty());
+    auto tokens = llvm::to_vector<3>(llvm::split(heading.trim(), ' '));
+    if (tokens.size() != 2 || tokens[0] != "#!mini-llvm-expr") {
+      diagnostic_manager.PutString(lldb::eSeverityError,
+                                   "no #!mini-llvm-expr at start");
+      return false;
+    }
+    int block_count;
+    if (!llvm::to_integer(tokens[1], block_count)) {
+      diagnostic_manager.PutString(lldb::eSeverityError,
+                                   "block count must be a valid integer");
+      return false;
+    }
+    if (block_count < 1) {
+      diagnostic_manager.PutString(lldb::eSeverityError,
+                                   "block count must be greater than 0");
+      return false;
+    }
+
+    m_transformed_text =
+        llvm::formatv("#!mini-llvm\n"
+                      "{3}\n"
+                      "define_function_type void {0}\n"
+                      "define_function {0} {0} {1}\n"
+                      "{2}",
+                      FunctionName(), block_count, expr, m_expr_prefix);
+  }
+
   InstallContext(exe_ctx);
   return true;
 }
@@ -90,85 +109,40 @@ bool MiniLLVMUserExpression::TryParse(
     DiagnosticManager &diagnostic_manager, ExecutionContext &exe_ctx,
     lldb_private::ExecutionPolicy execution_policy, bool keep_result_in_memory,
     bool generate_debug_info) {
-  // TOOD: This is subset of C instead of minillvm lang. reimplement this
   m_materializer_up = std::make_unique<Materializer>();
 
-  // We only accept "((void (*)())(address))()", error otherwise
-  std::string prefix_str = "((void (*)())(";
-  std::string suffix_str = "))()";
+  MiniLLVMCompiler compiler(diagnostic_manager);
 
-  auto prefix_pos = m_expr_text.find("((void (*)())(");
-  auto suffix_pos = m_expr_text.find("))()");
-  if (prefix_pos == std::string::npos || suffix_pos == std::string::npos ||
-      prefix_pos >= suffix_pos) {
-    diagnostic_manager.PutString(
-        lldb::eSeverityError,
-        "expression must be a function call with a function pointer cast");
+  if (!compiler.ParseAndEmit(m_transformed_text)) {
     return false;
   }
 
-  std::string_view address_str =
-      ((std::string_view)m_expr_text)
-          .substr(prefix_pos + prefix_str.length(),
-                  suffix_pos - prefix_pos - prefix_str.length());
-  lldb::addr_t address;
-  if (!llvm::to_integer(address_str, address)) {
-    diagnostic_manager.PutString(lldb::eSeverityError,
-                                 "address must be a valid integer");
-    return false;
+  ConstString function_name;
+
+  if (execution_policy != eExecutionPolicyTopLevel) {
+    function_name = ConstString(FunctionName());
   }
-  m_target_func_addr = address;
 
-  // do JIT
-  std::unique_ptr<llvm::LLVMContext> TheContext =
-      std::make_unique<llvm::LLVMContext>();
-  std::unique_ptr<llvm::IRBuilder<>> Builder =
-      std::make_unique<llvm::IRBuilder<>>(*TheContext);
-  std::unique_ptr<llvm::Module> TheModule =
-      std::make_unique<llvm::Module>("top", *TheContext);
-  lldb_private::Status err;
+  lldb_private::Status jit_error =
+      compiler.Compile(function_name, m_jit_start_addr, m_jit_end_addr,
+                       m_execution_unit_sp, exe_ctx);
 
-  unsigned ptr_size = 64;
-
-  llvm::FunctionType *noArgReturnVoid =
-      llvm::FunctionType::get(llvm::Type::getVoidTy(*TheContext), false);
-
-  llvm::Function *mainFunc =
-      llvm::Function::Create(noArgReturnVoid, llvm::Function::ExternalLinkage,
-                             "main", TheModule.get());
-  llvm::BasicBlock *mainBlock =
-      llvm::BasicBlock::Create(*TheContext, "", mainFunc);
-  Builder->SetInsertPoint(mainBlock);
-
-  auto *func_ptr_ty = llvm::PointerType::get(noArgReturnVoid, 0);
-  auto *func_addr_const = llvm::ConstantInt::get(*TheContext, llvm::APInt(ptr_size, address));
-  auto *func_ptr_const = llvm::ConstantExpr::getIntToPtr(func_addr_const, func_ptr_ty);
-  Builder->CreateCall(noArgReturnVoid, func_ptr_const);
-  Builder->CreateRetVoid();
-
-  SymbolContext sc;
-  ConstString function_name("main");
-  std::vector<std::string> target_feature;
-
-  m_execution_unit_sp = std::make_shared<IRExecutionUnit>(
-      TheContext, // handed off here
-      TheModule,  // handed off here
-      function_name, exe_ctx.GetTargetSP(), sc, target_feature);
-  m_execution_unit_sp->GetRunnableInfo(err, m_jit_start_addr, m_jit_end_addr);
-
-  if (err.Fail()) {
-    diagnostic_manager.PutString(lldb::eSeverityError,
-                                 "expression can't be interpreted or run");
+  if (jit_error.Fail()) {
+    const char *error_cstr = jit_error.AsCString();
+    if (error_cstr && error_cstr[0])
+      diagnostic_manager.PutString(lldb::eSeverityError, error_cstr);
+    else
+      diagnostic_manager.PutString(lldb::eSeverityError,
+                                   "expression can't be interpreted or run");
     return false;
   }
   return true;
 }
 
-bool MiniLLVMUserExpression::Parse(DiagnosticManager &diagnostic_manager,
-                                ExecutionContext &exe_ctx,
-                                lldb_private::ExecutionPolicy execution_policy,
-                                bool keep_result_in_memory,
-                                bool generate_debug_info) {
+bool MiniLLVMUserExpression::Parse(
+    DiagnosticManager &diagnostic_manager, ExecutionContext &exe_ctx,
+    lldb_private::ExecutionPolicy execution_policy, bool keep_result_in_memory,
+    bool generate_debug_info) {
   Log *log = GetLog(LLDBLog::Expressions);
 
   if (!PrepareForParsing(diagnostic_manager, exe_ctx, /*for_completion*/ false))
@@ -193,32 +167,7 @@ bool MiniLLVMUserExpression::Parse(DiagnosticManager &diagnostic_manager,
 
   bool parse_success = TryParse(diagnostic_manager, exe_ctx, execution_policy,
                                 keep_result_in_memory, generate_debug_info);
-#if CONSOLE_LOG_SAVER // shouldRetryWithCppModule will be false
-  // If the expression failed to parse, check if retrying parsing with a loaded
-  // C++ module is possible.
-  if (!parse_success && shouldRetryWithCppModule(*target, execution_policy)) {
-    // Load the loaded C++ modules.
-    SetupCppModuleImports(exe_ctx);
-    // If we did load any modules, then retry parsing.
-    if (!m_imported_cpp_modules.empty()) {
-      // Create a dedicated diagnostic manager for the second parse attempt.
-      // These diagnostics are only returned to the caller if using the fallback
-      // actually succeeded in getting the expression to parse. This prevents
-      // that module-specific issues regress diagnostic quality with the
-      // fallback mode.
-      DiagnosticManager retry_manager;
-      // The module imports are injected into the source code wrapper,
-      // so recreate those.
-      CreateSourceCode(retry_manager, exe_ctx, m_imported_cpp_modules,
-                       /*for_completion*/ false);
-      parse_success = TryParse(retry_manager, exe_ctx, execution_policy,
-                               keep_result_in_memory, generate_debug_info);
-      // Return the parse diagnostics if we were successful.
-      if (parse_success)
-        diagnostic_manager = std::move(retry_manager);
-    }
-  }
-#endif
+
   if (!parse_success)
     return false;
 
@@ -264,15 +213,15 @@ bool MiniLLVMUserExpression::Parse(DiagnosticManager &diagnostic_manager,
   return true;
 }
 
-bool MiniLLVMUserExpression::AddArguments(ExecutionContext &exe_ctx,
-                                       std::vector<lldb::addr_t> &args,
-                                       lldb::addr_t struct_address,
-                                       DiagnosticManager &diagnostic_manager) {
+bool MiniLLVMUserExpression::AddArguments(
+    ExecutionContext &exe_ctx, std::vector<lldb::addr_t> &args,
+    lldb::addr_t struct_address, DiagnosticManager &diagnostic_manager) {
   args.push_back(struct_address);
   return true;
 }
 
-lldb::ExpressionVariableSP MiniLLVMUserExpression::GetResultAfterDematerialization(
+lldb::ExpressionVariableSP
+MiniLLVMUserExpression::GetResultAfterDematerialization(
     ExecutionContextScope *exe_scope) {
   return nullptr;
 }

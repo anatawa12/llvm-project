@@ -12,16 +12,12 @@
 #include <optional>
 #include <vector>
 
-#include "lldb/Core/Address.h"
 #include "lldb/Expression/LLVMUserExpression.h"
-#include "lldb/Expression/Materializer.h"
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/lldb-forward.h"
 #include "lldb/lldb-private.h"
 
 namespace lldb_private {
-
-class MiniLLVMExpressionParser;
 
 /// \class MiniLLVMUserExpression MiniLLVMUserExpression.h
 /// "lldb/Expression/MiniLLVMUserExpression.h" Encapsulates a single expression
@@ -121,8 +117,6 @@ private:
 
   bool PrepareForParsing(DiagnosticManager &diagnostic_manager,
                          ExecutionContext &exe_ctx, bool for_completion);
-
-  lldb::addr_t m_target_func_addr;
 };
 
 } // namespace lldb_private
