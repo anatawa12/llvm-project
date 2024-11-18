@@ -1,1 +1,1 @@
-#add_subdirectory(MacOSX)
+add_subdirectory(MacOSX)
