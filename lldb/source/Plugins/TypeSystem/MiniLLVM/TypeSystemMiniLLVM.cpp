@@ -1025,7 +1025,7 @@ uint32_t TypeSystemMiniLLVM::GetTypeInfo(lldb::opaque_compiler_type_t type,
   if (pointee_or_type)
     pointee_or_type->Clear();
 
-  auto mini_type = GetMiniType(pointee_or_type);
+  auto mini_type = GetMiniType(type);
 
   switch (mini_type.getType()->getTypeID()) {
   case llvm::Type::IntegerTyID: {

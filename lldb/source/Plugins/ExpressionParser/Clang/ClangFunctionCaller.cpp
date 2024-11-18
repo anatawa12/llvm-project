@@ -11,17 +11,21 @@
 #include "ASTStructExtractor.h"
 #include "ClangExpressionParser.h"
 
+#ifdef CONSOLE_LOG_SAVER
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/CodeGen/CodeGenAction.h"
 #include "clang/CodeGen/ModuleBuilder.h"
 #include "clang/Frontend/CompilerInstance.h"
+#endif // CONSOLE_LOG_SAVER
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Module.h"
 #include "llvm/TargetParser/Triple.h"
 
+#ifdef CONSOLE_LOG_SAVER
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
+#endif // CONSOLE_LOG_SAVER
 #include "lldb/Core/Module.h"
 #include "lldb/Expression/IRExecutionUnit.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -58,11 +62,11 @@ class ClangFunctionCallerExpressionParser : public ExpressionParser {
 public:
   ClangFunctionCallerExpressionParser(
       ExecutionContextScope *exe_scope, ClangFunctionCaller &expr,
-      std::vector<clang::QualType> argument_types)
+      std::vector<CompilerType> argument_types)
       : ExpressionParser(exe_scope, expr, false),
         argument_types(argument_types) {}
 
-  std::vector<clang::QualType> argument_types;
+  std::vector<CompilerType> argument_types;
 
   ~ClangFunctionCallerExpressionParser() override = default;
 
@@ -98,7 +102,7 @@ public:
     // space for function pointer
     elements.push_back(llvm::PointerType::get(*context, 0));
     // space for arguments
-    for (auto &type : argument_types) {
+    for (size_t i = 0; i < argument_types.size(); ++i) {
       // TODO: extend support for non pointers
       elements.push_back(llvm::PointerType::get(*context, 0));
     }
@@ -111,7 +115,7 @@ public:
 
     // region Create Callee function type
     std::vector<llvm::Type *> arg_types;
-    for (auto &type : argument_types) {
+    for (size_t i = 0; i < argument_types.size(); ++i) {
       arg_types.push_back(llvm::PointerType::get(*context, 0));
     }
     llvm::Type *return_type = llvm::PointerType::get(*context, 0);
@@ -136,7 +140,7 @@ public:
         builder->CreateLoad(llvm::PointerType::get(*context, 0), parameter);
 
     std::vector<llvm::Value *> args;
-    for (size_t i = 0; i < argument_types.size(); i++) {
+    for (size_t i = 0; i < argument_types.size(); ++i) {
       auto *arg_pointer = builder->CreateGEP(
           struct_type, 
           parameter,
@@ -210,7 +214,7 @@ ClangFunctionCaller::CompileFunction(lldb::ThreadSP thread_to_use_sp,
   ThreadList::ExpressionExecutionThreadPusher execution_thread_pusher(
       thread_to_use_sp);
 
-#if !CONSOLE_LOG_SAVER
+#ifndef CONSOLE_LOG_SAVER
   uint32_t num_args = UINT32_MAX;
   bool trust_function = false;
   // GetArgumentCount returns -1 for an unprototyped function.
@@ -229,29 +233,22 @@ ClangFunctionCaller::CompileFunction(lldb::ThreadSP thread_to_use_sp,
   if (num_args == UINT32_MAX)
     num_args = m_arg_values.GetSize();
 
-  if (!clang::QualType::getFromOpaquePtr(
-           m_function_return_type.GetOpaqueQualType())
-           ->isPointerType()) {
+  if ((m_function_return_type.GetTypeInfo() & lldb::eTypeIsPointer) == 0) {
     diagnostic_manager.Printf(lldb::eSeverityError,
                               "Only pointers are supported for now.");
     return 1;
   }
 
-  std::vector<clang::QualType> argument_types;
+  std::vector<CompilerType> argument_types;
 
   for (size_t i = 0; i < num_args; i++) {
-    clang::QualType type_name;
+    CompilerType type_name;
 
     if (trust_function) {
-      auto type = function_clang_type.GetFunctionArgumentTypeAtIndex(i);
-      type_name = clang::QualType::getFromOpaquePtr(type.GetOpaqueQualType());
+      type_name = function_clang_type.GetFunctionArgumentTypeAtIndex(i);
     } else {
-      CompilerType clang_qual_type =
-          m_arg_values.GetValueAtIndex(i)->GetCompilerType();
-      if (clang_qual_type) {
-        type_name = clang::QualType::getFromOpaquePtr(
-            clang_qual_type.GetOpaqueQualType());
-      } else {
+      type_name = m_arg_values.GetValueAtIndex(i)->GetCompilerType();
+      if (!type_name) {
         diagnostic_manager.Printf(
             lldb::eSeverityError,
             "Could not determine type of input value %" PRIu64 ".",
@@ -260,7 +257,7 @@ ClangFunctionCaller::CompileFunction(lldb::ThreadSP thread_to_use_sp,
       }
     }
     // TODO: extend support for non pointers
-    if (!type_name->isPointerType()) {
+    if ((m_function_return_type.GetTypeInfo() & lldb::eTypeIsPointer) == 0) {
       diagnostic_manager.Printf(lldb::eSeverityError,
                                 "Only pointers are supported for now.");
       return 1;
@@ -273,12 +270,12 @@ ClangFunctionCaller::CompileFunction(lldb::ThreadSP thread_to_use_sp,
     if (jit_process_sp) {
       // TODO: 32bit support
       // TODO: non pointer support
-      m_struct_size = (argument_types.size() + 2) * 8;
-      m_return_offset = (argument_types.size() + 1) * 8;
+      m_struct_size = (num_args + 2) * 8;
+      m_return_offset = (num_args + 1) * 8;
       m_return_size = 8;
 
       for (unsigned field_index = 0,
-                    num_fields = argument_types.size() + 2;
+                    num_fields = num_args + 2;
            field_index < num_fields; ++field_index) {
         uint64_t offset = (field_index) * 8;
         m_member_offsets.push_back(offset);
