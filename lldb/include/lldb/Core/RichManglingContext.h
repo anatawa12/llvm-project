@@ -31,6 +31,7 @@ public:
 
   ~RichManglingContext();
 
+#if CONSOLE_LOG_SAVER
   /// Use the ItaniumPartialDemangler to obtain rich mangling information from
   /// the given mangled name.
   bool FromItaniumName(ConstString mangled);
@@ -38,6 +39,7 @@ public:
   /// Use the legacy language parser implementation to obtain rich mangling
   /// information from the given demangled name.
   bool FromCxxMethodName(ConstString demangled);
+#endif // CONSOLE_LOG_SAVER
 
   /// If this symbol describes a constructor or destructor.
   bool IsCtorOrDtor() const;
@@ -54,7 +56,11 @@ public:
   llvm::StringRef ParseFullName();
 
 private:
+#if CONSOLE_LOG_SAVER
   enum InfoProvider { None, ItaniumPartialDemangler, PluginCxxLanguage };
+#else
+  enum InfoProvider { None };
+#endif // CONSOLE_LOG_SAVER
 
   /// Selects the rich mangling info provider.
   InfoProvider m_provider = None;
@@ -76,8 +82,10 @@ private:
   /// Clean up memory when using PluginCxxLanguage
   void ResetCxxMethodParser();
 
+#if CONSOLE_LOG_SAVER
   /// Clean up memory and set a new info provider for this instance.
   void ResetProvider(InfoProvider new_provider);
+#endif // CONSOLE_LOG_SAVER
 
   /// Uniform handling of string buffers for ItaniumPartialDemangler.
   llvm::StringRef processIPDStrResult(char *ipd_res, size_t res_len);

@@ -52,8 +52,10 @@
 #include "lldb/Host/windows/PosixApi.h"
 #endif
 
+#if CONSOLE_LOG_SAVER
 #include "Plugins/Language/CPlusPlus/CPlusPlusLanguage.h"
 #include "Plugins/Language/ObjC/ObjCLanguage.h"
+#endif
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Compiler.h"
@@ -642,6 +644,7 @@ Module::LookupInfo::LookupInfo(ConstString name,
                                FunctionNameType name_type_mask,
                                LanguageType language)
     : m_name(name), m_lookup_name(), m_language(language) {
+#if CONSOLE_LOG_SAVER
   const char *name_cstr = name.GetCString();
   llvm::StringRef basename;
   llvm::StringRef context;
@@ -734,6 +737,15 @@ Module::LookupInfo::LookupInfo(ConstString name,
     m_lookup_name = name;
     m_match_name_after_lookup = false;
   }
+#else
+  if (name_type_mask & eFunctionNameTypeAuto) {
+    // removed c++ / OBJC lookup support so any name should be full name
+    m_name_type_mask = eFunctionNameTypeFull;
+  } else {
+    m_name_type_mask = name_type_mask;
+  }
+  m_lookup_name = name;
+#endif // CONSOLE_LOG_SAVER
 }
 
 bool Module::LookupInfo::NameMatchesLookupInfo(
@@ -771,6 +783,7 @@ bool Module::LookupInfo::NameMatchesLookupInfo(
 
 void Module::LookupInfo::Prune(SymbolContextList &sc_list,
                                size_t start_idx) const {
+#if CONSOLE_LOG_SAVER
   if (m_match_name_after_lookup && m_name) {
     SymbolContext sc;
     size_t i = start_idx;
@@ -786,6 +799,7 @@ void Module::LookupInfo::Prune(SymbolContextList &sc_list,
         sc_list.RemoveContextAtIndex(i);
     }
   }
+#endif
 
   // If we have only full name matches we might have tried to set breakpoint on
   // "func" and specified eFunctionNameTypeFull, but we might have found
@@ -802,6 +816,7 @@ void Module::LookupInfo::Prune(SymbolContextList &sc_list,
       ConstString mangled_name(sc.GetFunctionName(Mangled::ePreferMangled));
       ConstString full_name(sc.GetFunctionName());
       if (mangled_name != m_name && full_name != m_name) {
+#if CONSOLE_LOG_SAVER
         CPlusPlusLanguage::MethodName cpp_method(full_name);
         if (cpp_method.IsValid()) {
           if (cpp_method.GetContext().empty()) {
@@ -822,6 +837,10 @@ void Module::LookupInfo::Prune(SymbolContextList &sc_list,
             }
           }
         }
+#else
+        sc_list.RemoveContextAtIndex(i);
+        continue;
+#endif
       }
       ++i;
     }

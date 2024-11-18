@@ -7,7 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/Core/RichManglingContext.h"
+#if CONSOLE_LOG_SAVER
 #include "Plugins/Language/CPlusPlus/CPlusPlusLanguage.h"
+#endif // CONSOLE_LOG_SAVER
 #include "lldb/Utility/LLDBLog.h"
 
 #include "llvm/ADT/StringRef.h"
@@ -22,6 +24,7 @@ RichManglingContext::~RichManglingContext() {
 }
 
 void RichManglingContext::ResetCxxMethodParser() {
+#if CONSOLE_LOG_SAVER
   // If we want to support parsers for other languages some day, we need a
   // switch here to delete the correct parser type.
   if (m_cxx_method_parser.has_value()) {
@@ -29,8 +32,10 @@ void RichManglingContext::ResetCxxMethodParser() {
     delete get<CPlusPlusLanguage::MethodName>(m_cxx_method_parser);
     m_cxx_method_parser.reset();
   }
+#endif // CONSOLE_LOG_SAVER
 }
 
+#if CONSOLE_LOG_SAVER
 void RichManglingContext::ResetProvider(InfoProvider new_provider) {
   ResetCxxMethodParser();
 
@@ -62,10 +67,12 @@ bool RichManglingContext::FromCxxMethodName(ConstString demangled) {
   m_cxx_method_parser = new CPlusPlusLanguage::MethodName(demangled);
   return true;
 }
+#endif
 
 bool RichManglingContext::IsCtorOrDtor() const {
   assert(m_provider != None && "Initialize a provider first");
   switch (m_provider) {
+#if CONSOLE_LOG_SAVER
   case ItaniumPartialDemangler:
     return m_ipd.isCtorOrDtor();
   case PluginCxxLanguage: {
@@ -74,6 +81,7 @@ bool RichManglingContext::IsCtorOrDtor() const {
         get<CPlusPlusLanguage::MethodName>(m_cxx_method_parser)->GetBasename();
     return base_name.starts_with("~");
   }
+#endif // CONSOLE_LOG_SAVER
   case None:
     return false;
   }
@@ -112,6 +120,7 @@ llvm::StringRef RichManglingContext::processIPDStrResult(char *ipd_res,
 llvm::StringRef RichManglingContext::ParseFunctionBaseName() {
   assert(m_provider != None && "Initialize a provider first");
   switch (m_provider) {
+#if CONSOLE_LOG_SAVER
   case ItaniumPartialDemangler: {
     auto n = m_ipd_buf_size;
     auto buf = m_ipd.getFunctionBaseName(m_ipd_buf, &n);
@@ -120,6 +129,7 @@ llvm::StringRef RichManglingContext::ParseFunctionBaseName() {
   case PluginCxxLanguage:
     return get<CPlusPlusLanguage::MethodName>(m_cxx_method_parser)
         ->GetBasename();
+#endif // CONSOLE_LOG_SAVER
   case None:
     return {};
   }
@@ -129,6 +139,7 @@ llvm::StringRef RichManglingContext::ParseFunctionBaseName() {
 llvm::StringRef RichManglingContext::ParseFunctionDeclContextName() {
   assert(m_provider != None && "Initialize a provider first");
   switch (m_provider) {
+#if CONSOLE_LOG_SAVER
   case ItaniumPartialDemangler: {
     auto n = m_ipd_buf_size;
     auto buf = m_ipd.getFunctionDeclContextName(m_ipd_buf, &n);
@@ -137,6 +148,7 @@ llvm::StringRef RichManglingContext::ParseFunctionDeclContextName() {
   case PluginCxxLanguage:
     return get<CPlusPlusLanguage::MethodName>(m_cxx_method_parser)
         ->GetContext();
+#endif // CONSOLE_LOG_SAVER
   case None:
     return {};
   }
@@ -146,6 +158,7 @@ llvm::StringRef RichManglingContext::ParseFunctionDeclContextName() {
 llvm::StringRef RichManglingContext::ParseFullName() {
   assert(m_provider != None && "Initialize a provider first");
   switch (m_provider) {
+#if CONSOLE_LOG_SAVER
   case ItaniumPartialDemangler: {
     auto n = m_ipd_buf_size;
     auto buf = m_ipd.finishDemangle(m_ipd_buf, &n);
@@ -155,6 +168,7 @@ llvm::StringRef RichManglingContext::ParseFullName() {
     return get<CPlusPlusLanguage::MethodName>(m_cxx_method_parser)
         ->GetFullName()
         .GetStringRef();
+#endif // CONSOLE_LOG_SAVER
   case None:
     return {};
   }

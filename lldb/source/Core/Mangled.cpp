@@ -213,6 +213,7 @@ bool Mangled::GetRichManglingInfo(RichManglingContext &context,
   // have their names stored in m_demangled, while m_mangled is empty.
   assert(m_mangled);
 
+#if CONSOLE_LOG_SAVER
   // Check whether or not we are interested in this name at all.
   ManglingScheme scheme = GetManglingScheme(m_mangled.GetStringRef());
   if (skip_mangled_name && skip_mangled_name(m_mangled.GetStringRef(), scheme))
@@ -261,6 +262,10 @@ bool Mangled::GetRichManglingInfo(RichManglingContext &context,
     return false;
   }
   llvm_unreachable("Fully covered switch above!");
+#else // CONSOLE_LOG_SAVER
+  // rich mangling info is not supported
+  return false;
+#endif // CONSOLE_LOG_SAVER
 }
 
 // Generate the demangled name on demand using this accessor. Code in this

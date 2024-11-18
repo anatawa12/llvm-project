@@ -945,9 +945,11 @@ public:
     /// names we are looking for
     lldb::FunctionNameType m_name_type_mask = lldb::eFunctionNameTypeNone;
 
+#if CONSOLE_LOG_SAVER
     ///< If \b true, then demangled names that match will need to contain
     ///< "m_name" in order to be considered a match
     bool m_match_name_after_lookup = false;
+#endif
   };
 
   /// Get a unique hash for this module.

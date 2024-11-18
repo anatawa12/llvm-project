@@ -2411,8 +2411,10 @@ void SymbolFileDWARF::FindGlobalVariables(
   bool name_is_mangled = Mangled::GetManglingScheme(name.GetStringRef()) !=
                          Mangled::eManglingSchemeNone;
 
+#if CONSOLE_LOG_SAVER
   if (!CPlusPlusLanguage::ExtractContextAndIdentifier(name.GetCString(),
                                                       context, basename))
+#endif // CONSOLE_LOG_SAVER
     basename = name.GetStringRef();
 
   // Loop invariant: Variables up to this index have been checked for context
