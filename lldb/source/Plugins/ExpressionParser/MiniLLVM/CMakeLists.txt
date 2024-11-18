@@ -1,0 +1,40 @@
+add_lldb_library(lldbPluginExpressionParserMiniLLVM
+  MiniLLVMCompiler.cpp
+  MiniLLVMUtilityFunction.cpp
+
+  DEPENDS
+  intrinsics_gen
+
+  LINK_LIBS
+    lldbCore
+    lldbExpression
+    lldbHost
+    lldbInterpreter
+    lldbSymbol
+    lldbTarget
+    lldbUtility
+    lldbValueObject
+    lldbPluginCPlusPlusLanguage
+    lldbPluginCPPRuntime
+    lldbPluginObjCRuntime
+    lldbPluginTypeSystemClang
+  CLANG_LIBS
+    clangAST
+    clangCodeGen
+    clangDriver
+    clangEdit
+    clangFrontend
+    clangLex
+    clangParse
+    clangRewrite
+    clangRewriteFrontend
+    clangSema
+    clangSerialization
+  LINK_COMPONENTS
+    Core
+    ExecutionEngine
+    ipo
+    MCJIT
+    Support
+    TargetParser
+  )

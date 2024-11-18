@@ -7,6 +7,7 @@ add_lldb_library(lldbPluginTypeSystemMiniLLVM PLUGIN
     lldbTarget
     lldbUtility
     lldbPluginExpressionParserClang
+    lldbPluginExpressionParserMiniLLVM
     lldbPluginSymbolFileDWARF
     lldbPluginSymbolFilePDB
     lldbPluginObjCRuntime

@@ -26,9 +26,6 @@ add_lldb_library(lldbPluginExpressionParserClang
   IRDynamicChecks.cpp
   NameSearchContext.cpp
 
-        MiniLLVMUtilityFunction.cpp
-        MiniLLVMCompiler.cpp
-
   DEPENDS
   intrinsics_gen
 

@@ -89,7 +89,7 @@
 #include <optional>
 
 #ifndef CONSOLE_LOG_SAVER
-#include "Plugins/ExpressionParser/Clang/MiniLLVMUtilityFunction.h"
+#include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMUtilityFunction.h"
 #endif
 
 using namespace lldb;

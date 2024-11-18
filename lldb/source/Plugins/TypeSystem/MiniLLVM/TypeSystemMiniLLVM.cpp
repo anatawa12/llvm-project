@@ -64,7 +64,7 @@
 #include <mutex>
 #include <optional>
 
-#include "Plugins/ExpressionParser/Clang/MiniLLVMUtilityFunction.h"
+#include "Plugins/ExpressionParser/MiniLLVM/MiniLLVMUtilityFunction.h"
 
 using namespace lldb;
 using namespace lldb_private;
