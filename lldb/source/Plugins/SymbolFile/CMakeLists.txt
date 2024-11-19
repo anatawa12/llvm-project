@@ -1,12 +1,10 @@
 if (CMAKE_SYSTEM_NAME MATCHES "Linux|Android")
-    add_subdirectory(DWARF)
     add_subdirectory(Symtab)
 elseif (CMAKE_SYSTEM_NAME MATCHES "Windows")
     add_subdirectory(NativePDB) 
     add_subdirectory(PDB) # TODO: reduce
 elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
-    add_subdirectory(DWARF)
-    add_subdirectory(Symtab) # TODO: reduce
+    add_subdirectory(Symtab)
 endif()
 if (false)
 add_subdirectory(Breakpad)
