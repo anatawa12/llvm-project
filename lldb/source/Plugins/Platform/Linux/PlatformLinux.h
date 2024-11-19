@@ -60,7 +60,9 @@ public:
                                   unsigned flags, lldb::addr_t fd,
                                   lldb::addr_t offset) override;
 
+#ifdef CONSOLE_LOG_SAVER
   CompilerType GetSiginfoType(const llvm::Triple &triple) override;
+#endif
 
   std::vector<ArchSpec> m_supported_architectures;
 

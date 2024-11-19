@@ -311,6 +311,7 @@ MmapArgList PlatformLinux::GetMmapArgumentList(const ArchSpec &arch,
   return args;
 }
 
+#ifdef CONSOLE_LOG_SAVER
 CompilerType PlatformLinux::GetSiginfoType(const llvm::Triple &triple) {
   {
     std::lock_guard<std::mutex> guard(m_mutex);
@@ -481,3 +482,4 @@ CompilerType PlatformLinux::GetSiginfoType(const llvm::Triple &triple) {
   ast->CompleteTagDeclarationDefinition(siginfo_type);
   return siginfo_type;
 }
+#endif // CONSOLE_LOG_SAVER
