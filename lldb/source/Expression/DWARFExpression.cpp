@@ -345,6 +345,7 @@ static lldb::offset_t GetOpcodeDataSize(const DataExtractor &data,
   }
 }
 
+#ifdef CONSOLE_LOG_SAVER
 lldb::addr_t DWARFExpression::GetLocation_DW_OP_addr(const DWARFUnit *dwarf_cu,
                                                      bool &error) const {
   error = false;
@@ -371,6 +372,7 @@ lldb::addr_t DWARFExpression::GetLocation_DW_OP_addr(const DWARFUnit *dwarf_cu,
   }
   return LLDB_INVALID_ADDRESS;
 }
+#endif
 
 bool DWARFExpression::Update_DW_OP_addr(const DWARFUnit *dwarf_cu,
                                         lldb::addr_t file_addr) {
@@ -2296,6 +2298,7 @@ llvm::Expected<Value> DWARFExpression::Evaluate(
 #endif
 }
 
+#ifdef CONSOLE_LOG_SAVER
 bool DWARFExpression::ParseDWARFLocationList(
     const DWARFUnit *dwarf_cu, const DataExtractor &data,
     DWARFExpressionList *location_list) {
@@ -2332,6 +2335,7 @@ bool DWARFExpression::ParseDWARFLocationList(
   }
   return true;
 }
+#endif
 
 bool DWARFExpression::MatchesOperand(
     StackFrame &frame, const Instruction::Operand &operand) const {

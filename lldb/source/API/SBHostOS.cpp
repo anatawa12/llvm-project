@@ -74,8 +74,10 @@ SBFileSpec SBHostOS::GetLLDBPath(lldb::PathType path_type) {
   case ePathTypeGlobalLLDBTempSystemDir:
     fspec = HostInfo::GetGlobalTempDir();
     break;
+#ifdef CONSOLE_LOG_SAVER
   case ePathTypeClangDir:
     fspec = GetClangResourceDir();
+#endif // CONSOLE_LOG_SAVER
     break;
   }
 

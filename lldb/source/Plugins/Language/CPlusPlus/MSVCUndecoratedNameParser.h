@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #ifndef LLDB_SOURCE_PLUGINS_LANGUAGE_CPLUSPLUS_MSVCUNDECORATEDNAMEPARSER_H
 #define LLDB_SOURCE_PLUGINS_LANGUAGE_CPLUSPLUS_MSVCUNDECORATEDNAMEPARSER_H
 
@@ -48,3 +49,4 @@ private:
 };
 
 #endif
+#endif // CONSOLE_LOG_SAVER

@@ -24,6 +24,7 @@ bool SaveMiniDump(const lldb::ProcessSP &process_sp,
                   SaveCoreOptions &core_options, lldb_private::Status &error) {
   if (!process_sp)
     return false;
+#ifdef CONSOLE_LOG_SAVER
 #ifdef _WIN32
   std::optional<FileSpec> outfileSpec = core_options.GetOutputFile();
   const auto &outfile = outfileSpec.value();
@@ -53,6 +54,7 @@ bool SaveMiniDump(const lldb::ProcessSP &process_sp,
   }
   return true;
 #endif
+#endif // CONSOLE_LOG_SAVER
   return false;
 }
 

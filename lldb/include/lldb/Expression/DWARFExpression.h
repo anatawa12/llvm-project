@@ -54,6 +54,7 @@ public:
   /// Return true if the location expression contains data
   bool IsValid() const;
 
+#ifdef CONSOLE_LOG_SAVER
   /// Return the address specified by the first
   /// DW_OP_{addr, addrx, GNU_addr_index} in the operation stream.
   ///
@@ -70,6 +71,7 @@ public:
   ///     LLDB_INVALID_ADDRESS otherwise.
   lldb::addr_t GetLocation_DW_OP_addr(const plugin::dwarf::DWARFUnit *dwarf_cu,
                                       bool &error) const;
+#endif
 
   bool Update_DW_OP_addr(const plugin::dwarf::DWARFUnit *dwarf_cu,
                          lldb::addr_t file_addr);
@@ -139,9 +141,11 @@ public:
            const lldb::RegisterKind reg_set, const Value *initial_value_ptr,
            const Value *object_address_ptr);
 
+#ifdef CONSOLE_LOG_SAVER
   static bool ParseDWARFLocationList(const plugin::dwarf::DWARFUnit *dwarf_cu,
                                      const DataExtractor &data,
                                      DWARFExpressionList *loc_list);
+#endif
 
   bool GetExpressionData(DataExtractor &data) const {
     data = m_data;

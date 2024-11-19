@@ -76,7 +76,9 @@ llvm::Error SystemInitializerCommon::Initialize() {
 
   LLDB_SCOPED_TIMER();
 
+#if !defined(CONSOLE_LOG_SAVER) && !defined(_WIN32)
   process_gdb_remote::ProcessGDBRemoteLog::Initialize();
+#endif
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) ||       \
     defined(__OpenBSD__)

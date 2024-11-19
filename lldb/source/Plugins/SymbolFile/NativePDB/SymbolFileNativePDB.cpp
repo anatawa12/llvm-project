@@ -638,12 +638,14 @@ lldb::TypeSP SymbolFileNativePDB::CreateSimpleType(TypeIndex ti,
 }
 
 static std::string GetUnqualifiedTypeName(const TagRecord &record) {
+#ifdef CONSOLE_LOG_SAVER
   if (!record.hasUniqueName()) {
     MSVCUndecoratedNameParser parser(record.Name);
     llvm::ArrayRef<MSVCUndecoratedNameSpecifier> specs = parser.GetSpecifiers();
 
     return std::string(specs.back().GetBaseName());
   }
+#endif // CONSOLE_LOG_SAVER
 
   llvm::ms_demangle::Demangler demangler;
   std::string_view sv(record.UniqueName.begin(), record.UniqueName.size());

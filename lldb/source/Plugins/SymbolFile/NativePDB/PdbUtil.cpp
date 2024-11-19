@@ -596,9 +596,11 @@ TypeIndex lldb_private::npdb::LookThroughModifierRecord(CVType modifier) {
   return mr.ModifiedType;
 }
 
+#ifdef CONSOLE_LOG_SAVER
 llvm::StringRef lldb_private::npdb::DropNameScope(llvm::StringRef name) {
   return MSVCUndecoratedNameParser::DropScope(name);
 }
+#endif
 
 VariableInfo lldb_private::npdb::GetVariableNameInfo(CVSymbol sym) {
   VariableInfo result = {};

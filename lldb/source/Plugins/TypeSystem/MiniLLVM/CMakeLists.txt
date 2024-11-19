@@ -7,8 +7,6 @@ add_lldb_library(lldbPluginTypeSystemMiniLLVM PLUGIN
     lldbTarget
     lldbUtility
     lldbPluginExpressionParserMiniLLVM
-    lldbPluginSymbolFileDWARF
-    lldbPluginSymbolFilePDB
   LINK_COMPONENTS
     Support
 )
