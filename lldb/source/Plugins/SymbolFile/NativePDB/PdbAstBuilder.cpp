@@ -1,3 +1,4 @@
+#ifdef CONSOLE_LOG_SAVER
 #include "PdbAstBuilder.h"
 
 #include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
@@ -1452,3 +1453,4 @@ PdbAstBuilder::FromCompilerDeclContext(CompilerDeclContext context) {
 void PdbAstBuilder::Dump(Stream &stream) {
   m_clang.Dump(stream.AsRawOstream());
 }
+#endif // CONSOLE_LOG_SAVER

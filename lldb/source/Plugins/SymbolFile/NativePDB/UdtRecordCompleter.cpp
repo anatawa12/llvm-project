@@ -1,3 +1,4 @@
+#ifdef CONSOLE_LOG_SAVER
 #include "UdtRecordCompleter.h"
 
 #include "PdbAstBuilder.h"
@@ -499,3 +500,4 @@ void UdtRecordCompleter::Record::ConstructRecord() {
     }
   }
 }
+#endif // CONSOLE_LOG_SAVER
