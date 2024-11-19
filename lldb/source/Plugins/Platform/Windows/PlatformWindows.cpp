@@ -453,7 +453,19 @@ Status PlatformWindows::UnloadImage(Process *process, uint32_t image_token) {
     return Status::FromErrorString("invalid image token");
 
   StreamString expression;
+#ifndef CONSOLE_LOG_SAVER
+  expression.Printf(
+      "#!mini-llvm-expr 1"
+      "define_function_type i32 FreeLibrary ptr\n"
+      "declare_function FreeLibrary FreeLibrary\n"
+      "\n"
+      "const target_ptr ptr %" PRId64 "\n"
+      "call ret FreeLibrary FreeLibrary target_ptr\n"
+      "ret_void\n",
+      address);
+#else // CONSOLE_LOG_SAVER
   expression.Printf("FreeLibrary((HMODULE)0x%" PRIx64 ")", address);
+#endif // CONSOLE_LOG_SAVER
 
   ValueObjectSP value;
   Status result =
@@ -462,6 +474,9 @@ Status PlatformWindows::UnloadImage(Process *process, uint32_t image_token) {
     return result;
 
   if (value->GetError().Fail())
+#ifndef CONSOLE_LOG_SAVER
+    if (value->GetError().GetError() != UserExpression::kNoResult)
+#endif
     return value->GetError().Clone();
 
   Scalar scalar;
@@ -640,6 +655,88 @@ PlatformWindows::GetSoftwareBreakpointTrapOpcode(Target &target,
 std::unique_ptr<UtilityFunction>
 PlatformWindows::MakeLoadImageUtilityFunction(ExecutionContext &context,
                                               Status &status) {
+#ifndef CONSOLE_LOG_SAVER
+  static constexpr const char kLoaderDecls[] = R"(
+#!mini-llvm
+
+define_struct __lldb_LoadLibraryResult ptr ptr i32 i32          ; %struct.__lldb_LoadLibraryResult = type { ptr, ptr, i32, i32 }
+
+; declare ptr @AddDllDirectory(ptr)
+define_function_type ptr AddDllDirectory ptr
+declare_function AddDllDirectory AddDllDirectory
+
+; declare iptr @wcslen(ptr)
+define_function_type iptr wcslen ptr
+declare_function wcslen wcslen
+
+; declare ptr @LoadLibraryExW(ptr, ptr, i32)
+define_function_type ptr LoadLibraryExW ptr ptr i32
+declare_function LoadLibraryExW
+
+; declare i32 @GetLastError() local_unnamed_addr #1
+define_function_type i32 GetLastError
+declare_function GetLastError
+
+; declare i32 @GetModuleFileNameA(ptr, ptr, i32)
+define_function_type i32 GetModuleFileNameA ptr ptr i32
+declare_function GetModuleFileNameA GetModuleFileNameA
+
+; define ptr @__lldb_LoadLibraryHelper(ptr %0, ptr %1, ptr %2) {
+define_function_type ptr __lldb_LoadLibraryHelper ptr ptr ptr
+declare_function __lldb_LoadLibraryHelper __lldb_LoadLibraryHelper 7
+
+const i16_0 i16 0
+const iptr_0 iptr 0
+const i32_3 i32 3
+
+const iptr_1 iptr 1
+const LOAD_LIBRARY_SEARCH_DEFAULT_DIRS i32 4096
+
+begin_block 0
+  icmp %4 eq %1 null                                ; %4 = icmp eq ptr %1, null
+  cond_br %4 2 1                                    ; br i1 %4, label %8, label %5
+
+begin_block 1                                       ; block 5; preds = %3
+  load %6 i16 %1                                    ; %6 = load i16, ptr %1, align 2, !tbaa !6
+  icmp %7 eq %6 i16_0                               ; %7 = icmp eq i16 %6, 0
+  cond_br %7 2 3                                    ; br i1 %7, label %8, label %11
+
+begin_block 2                                       ; block 8 ; preds = %11, %5, %3
+  call %9 LoadLibraryExW LoadLibraryExW %0 null LOAD_LIBRARY_SEARCH_DEFAULT_DIRS        ; %9 = tail call ptr @LoadLibraryExW(ptr %0, ptr null, i32 4096)
+  store %9 %2                                       ; store ptr %9, ptr %2, align 8, !tbaa !10
+  icmp %10 eq %9 null                               ; %10 = icmp eq ptr %9, null
+  cond_br %10 4 5                                   ; br i1 %10, label %19, label %22
+
+begin_block 3                                       ; block 11; preds = %5, %11
+  phi %12 ptr 2 %16 3 %1 1                          ; %12 = phi ptr [ %16, %11 ], [ %1, %5 ]
+  call %13 AddDllDirectory AddDllDirectory %12      ; %13 = tail call ptr @AddDllDirectory(ptr %12)
+  call %14 wcslen wcslen %12                        ; %14 = tail call iptr @wcslen(ptr noundef nonnull %12)
+  add %15 %14 iptr_1                                ; %15 = add i64 %14, 1
+  getelementptr %16 i16 %12 %15                     ; %16 = getelementptr inbounds i16, ptr %12, i64 %15
+  load %17 i16 %16                                  ; %17 = load i16, ptr %16, align 2, !tbaa !6
+  icmp %18 eq %17 i16_0                             ; %18 = icmp eq i16 %17, 0
+  cond_br %18 2 3                                   ; br i1 %18, label %8, label %11
+
+begin_block 4                                       ; block 19; preds = %8
+  call %20 GetLastError GetLastError                ; %20 = tail call i32 @GetLastError() #3
+  getelementptr %21 __lldb_LoadLibraryResult %2 iptr_0 i32_3                    ; %21 = getelementptr inbounds %struct.__lldb_LoadLibraryResult, ptr %2, iptr 0, i32 3
+  store %20 %21                                     ; store i32 %20, ptr %21, align 4, !tbaa !14
+  br 6                                              ; br label %28
+
+begin_block 5                                       ; 22; preds = %8
+  getelementptr %23 __lldb_LoadLibraryResult %2 iptr_0 i32_1                    ; %23 = getelementptr inbounds %struct.__lldb_LoadLibraryResult, ptr %2, i64 0, i32 1
+  load %24 ptr %23                                  ; %24 = load ptr, ptr %23, align 8, !tbaa !15
+  getelementptr %25 __lldb_LoadLibraryResult %2 iptr_0 i32_1                    ; %25 = getelementptr inbounds %struct.__lldb_LoadLibraryResult, ptr %2, i64 0, i32 2
+  load %26 i32 %25                                  ; %26 = load i32, ptr %25, align 8, !tbaa !16
+  call %27 GetModuleFileNameA GetModuleFileNameA %9 %24 %26                     ; %27 = tail call i32 @GetModuleFileNameA(ptr %9, ptr %24, i32 %26)
+  store %27 %25                                     ; store i32 %27, ptr %25, align 8, !tbaa !16
+  br 6                                              ; br label %28
+
+begin_block 6                                       ; 28; preds = %22, %19
+  load %29 ptr %2                                   ; %29 = load ptr, ptr %2, align 8, !tbaa !10
+  ret %29                                           ; ret ptr %29
+  )";
+#else
   // FIXME(compnerd) `-fdeclspec` is not passed to the clang instance?
   static constexpr const char kLoaderDecls[] = R"(
 extern "C" {
@@ -707,6 +804,7 @@ void * __lldb_LoadLibraryHelper(const wchar_t *name, const wchar_t *paths,
 }
 }
   )";
+#endif // CONSOLE_LOG_SAVER
 
   static constexpr const char kName[] = "__lldb_LoadLibraryHelper";
 
@@ -714,7 +812,11 @@ void * __lldb_LoadLibraryHelper(const wchar_t *name, const wchar_t *paths,
   Target &target = process->GetTarget();
 
   auto function = target.CreateUtilityFunction(std::string{kLoaderDecls}, kName,
+#ifndef CONSOLE_LOG_SAVER
+                                               eLanguageTypeMiniLLVM,
+#else
                                                eLanguageTypeC_plus_plus,
+#endif
                                                context);
   if (!function) {
     std::string error = llvm::toString(function.takeError());
@@ -782,6 +884,7 @@ void * __lldb_LoadLibraryHelper(const wchar_t *name, const wchar_t *paths,
 Status PlatformWindows::EvaluateLoaderExpression(Process *process,
                                                  const char *expression,
                                                  ValueObjectSP &value) {
+#ifdef CONSOLE_LOG_SAVER
   // FIXME(compnerd) `-fdeclspec` is not passed to the clang instance?
   static constexpr const char kLoaderDecls[] = R"(
 extern "C" {
@@ -800,6 +903,9 @@ extern "C" {
 /* __declspec(dllimport) */ void * __stdcall LoadLibraryExW(const wchar_t *, void *, uint32_t);
 }
   )";
+#else
+  static constexpr const char kLoaderDecls[] = R"()";
+#endif
 
   if (DynamicLoader *loader = process->GetDynamicLoader()) {
     Status result = loader->CanLoadImage();
@@ -822,7 +928,11 @@ extern "C" {
   options.SetUnwindOnError(true);
   options.SetIgnoreBreakpoints(true);
   options.SetExecutionPolicy(eExecutionPolicyAlways);
+#ifdef CONSOLE_LOG_SAVER
   options.SetLanguage(eLanguageTypeC_plus_plus);
+#else
+  options.SetLanguage(eLanguageTypeMiniLLVM);
+#endif
   // LoadLibraryEx{A,W}/FreeLibrary cannot raise exceptions which we can handle.
   // They may potentially throw SEH exceptions which we do not know how to
   // handle currently.
@@ -836,6 +946,9 @@ extern "C" {
     return error;
 
   if (value->GetError().Fail())
+#ifndef CONSOLE_LOG_SAVER
+    if (value->GetError().GetError() != UserExpression::kNoResult)
+#endif
     return value->GetError().Clone();
 
   return Status();
