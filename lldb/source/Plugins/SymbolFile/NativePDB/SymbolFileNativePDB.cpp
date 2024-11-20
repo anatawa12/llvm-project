@@ -1104,9 +1104,6 @@ void SymbolFileNativePDB::AddSymbols(Symtab &symtab) {
       if (symbolType == eSymbolTypeInvalid)
         continue;
 
-      auto file_vm_addr =
-          m_index->MakeVirtualAddress(pubSym.Segment, pubSym.Offset);
-
       // segments and sections are same in COFF (there is no segments, only sections)
       // Why PublicSym32 has name Segment for Section in llvm??
       auto section_sp = sect_list->FindSectionByID(pubSym.Segment);
@@ -1117,8 +1114,8 @@ void SymbolFileNativePDB::AddSymbols(Symtab &symtab) {
                               false,           // is_debug
                               false,           // is_trampoline
                               false,           // is_artificial
-                              section_sp,         // section_sp
-                              file_vm_addr,    // value
+                              section_sp,      // section_sp
+                              pubSym.Offset,   // value
                               0,               // size
                               false,           // size_is_valid
                               false,           // contains_linker_annotations
