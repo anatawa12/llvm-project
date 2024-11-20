@@ -1117,7 +1117,7 @@ void SymbolFileNativePDB::AddSymbols(Symtab &symtab) {
                               false,           // is_debug
                               false,           // is_trampoline
                               false,           // is_artificial
-                              nullptr,         // section_sp
+                              section_sp,         // section_sp
                               file_vm_addr,    // value
                               0,               // size
                               false,           // size_is_valid
