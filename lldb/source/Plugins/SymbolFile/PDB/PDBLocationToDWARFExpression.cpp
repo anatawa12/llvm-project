@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #include "PDBLocationToDWARFExpression.h"
 
 #include "lldb/Core/Section.h"
@@ -180,3 +181,4 @@ DWARFExpression ConvertPDBLocationToDWARFExpression(
 
   return result;
 }
+#endif

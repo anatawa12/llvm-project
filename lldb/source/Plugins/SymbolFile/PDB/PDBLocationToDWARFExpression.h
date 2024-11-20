@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #ifndef LLDB_SOURCE_PLUGINS_SYMBOLFILE_PDB_PDBLOCATIONTODWARFEXPRESSION_H
 #define LLDB_SOURCE_PLUGINS_SYMBOLFILE_PDB_PDBLOCATIONTODWARFEXPRESSION_H
 
@@ -44,4 +45,5 @@ ConvertPDBLocationToDWARFExpression(lldb::ModuleSP module,
                                     const llvm::pdb::PDBSymbolData &symbol,
                                     const lldb_private::Variable::RangeList &ranges,
                                     bool &is_constant);
+#endif
 #endif

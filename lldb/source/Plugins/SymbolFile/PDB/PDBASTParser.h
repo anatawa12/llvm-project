@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef CONSOLE_LOG_SAVER
 #ifndef LLDB_SOURCE_PLUGINS_SYMBOLFILE_PDB_PDBASTPARSER_H
 #define LLDB_SOURCE_PLUGINS_SYMBOLFILE_PDB_PDBASTPARSER_H
 
@@ -114,3 +115,4 @@ private:
 };
 
 #endif // LLDB_SOURCE_PLUGINS_SYMBOLFILE_PDB_PDBASTPARSER_H
+#endif
