@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef CONSOLE_LOG_SAVER
 #include "PDBASTParser.h"
 
 #include "SymbolFilePDB.h"
@@ -1454,4 +1453,3 @@ PDBASTParser::AddRecordMethod(lldb_private::SymbolFile &symbol_file,
       /*is_attr_used*/ false,
       /*is_artificial*/ method.isCompilerGenerated());
 }
-#endif

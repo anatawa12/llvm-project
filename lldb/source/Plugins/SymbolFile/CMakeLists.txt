@@ -1,7 +1,7 @@
 if (CMAKE_SYSTEM_NAME MATCHES "Linux|Android")
     add_subdirectory(Symtab)
 elseif (CMAKE_SYSTEM_NAME MATCHES "Windows")
-    add_subdirectory(PDB)
+    add_subdirectory(NativePDB)
 elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
     add_subdirectory(Symtab)
 endif()
