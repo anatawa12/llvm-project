@@ -358,6 +358,7 @@ void SymbolFileNativePDB::InitializeObject() {
   m_index->SetLoadAddress(m_obj_load_address);
   m_index->ParseSectionContribs();
 
+#ifdef CONSOLE_LOG_SAVER
   auto ts_or_err = m_objfile_sp->GetModule()->GetTypeSystemForLanguage(
       lldb::eLanguageTypeC_plus_plus);
   if (auto err = ts_or_err.takeError()) {
@@ -366,6 +367,9 @@ void SymbolFileNativePDB::InitializeObject() {
   } else {
     if (auto ts = *ts_or_err)
       ts->SetSymbolFile(this);
+#else
+  {
+#endif
     BuildParentMap();
   }
 }
@@ -1071,7 +1075,58 @@ lldb::LanguageType SymbolFileNativePDB::ParseLanguage(CompileUnit &comp_unit) {
   return TranslateLanguage(item->m_compile_opts->getLanguage());
 }
 
-void SymbolFileNativePDB::AddSymbols(Symtab &symtab) {}
+void SymbolFileNativePDB::AddSymbols(Symtab &symtab) {
+  std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
+  auto &stream = m_index->symrecords();
+  auto *sect_list = m_objfile_sp->GetSectionList();
+
+  int symID = 0; // TODO
+  for (const auto &item : stream.getSymbolArray()) {
+    auto name = llvm::codeview::getSymbolName(item);
+
+    if (item.kind() == S_PUB32) {
+      // target symbol type: S_PUB32.
+      PublicSym32 pubSym(item.kind());
+      cantFail(SymbolDeserializer::deserializeAs<PublicSym32>(item, pubSym));
+
+      SymbolType symbolType = eSymbolTypeInvalid;
+
+      switch (pubSym.Flags) {
+      case PublicSymFlags::Function:
+        symbolType = eSymbolTypeCode;
+        break;
+      case PublicSymFlags::None:
+        symbolType = eSymbolTypeData;
+        break;
+      default:
+        break;
+      }
+      if (symbolType == eSymbolTypeInvalid)
+        continue;
+
+      auto file_vm_addr =
+          m_index->MakeVirtualAddress(pubSym.Segment, pubSym.Offset);
+
+      // segments and sections are same in COFF (there is no segments, only sections)
+      // Why PublicSym32 has name Segment for Section in llvm??
+      auto section_sp = sect_list->FindSectionByID(pubSym.Segment);
+
+      symtab.AddSymbol(Symbol(symID++, // symID
+                              name, symbolType,
+                              true,            // external
+                              false,           // is_debug
+                              false,           // is_trampoline
+                              false,           // is_artificial
+                              nullptr,         // section_sp
+                              file_vm_addr,    // value
+                              0,               // size
+                              false,           // size_is_valid
+                              false,           // contains_linker_annotations
+                              0                // flags
+                              ));
+    }
+  }
+}
 
 size_t SymbolFileNativePDB::ParseFunctions(CompileUnit &comp_unit) {
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
