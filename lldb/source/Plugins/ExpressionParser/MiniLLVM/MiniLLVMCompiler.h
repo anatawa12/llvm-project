@@ -33,6 +33,7 @@ class MiniLLVMCompiler {
   bool GetType(llvm::StringRef name, llvm::Type *&type);
   bool GetValue(llvm::StringRef name, llvm::Value *&value);
   bool GetInt(llvm::StringRef name, int &value);
+  bool GetToken(std::vector<llvm::StringRef> &tokens, llvm::StringRef insn, int index, llvm::StringRef &value);
   bool ParseLine(std::vector<llvm::StringRef> &tokens);
 
 public:

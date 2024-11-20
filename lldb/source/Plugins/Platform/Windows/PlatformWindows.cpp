@@ -671,11 +671,11 @@ declare_function wcslen wcslen
 
 ; declare ptr @LoadLibraryExW(ptr, ptr, i32)
 define_function_type ptr LoadLibraryExW ptr ptr i32
-declare_function LoadLibraryExW
+declare_function LoadLibraryExW LoadLibraryExW
 
 ; declare i32 @GetLastError() local_unnamed_addr #1
 define_function_type i32 GetLastError
-declare_function GetLastError
+declare_function GetLastError GetLastError
 
 ; declare i32 @GetModuleFileNameA(ptr, ptr, i32)
 define_function_type i32 GetModuleFileNameA ptr ptr i32
@@ -683,10 +683,12 @@ declare_function GetModuleFileNameA GetModuleFileNameA
 
 ; define ptr @__lldb_LoadLibraryHelper(ptr %0, ptr %1, ptr %2) {
 define_function_type ptr __lldb_LoadLibraryHelper ptr ptr ptr
-declare_function __lldb_LoadLibraryHelper __lldb_LoadLibraryHelper 7
+define_function __lldb_LoadLibraryHelper __lldb_LoadLibraryHelper 7
 
 const i16_0 i16 0
 const iptr_0 iptr 0
+const i32_1 i32 1
+const i32_2 i32 2
 const i32_3 i32 3
 
 const iptr_1 iptr 1
@@ -726,7 +728,7 @@ begin_block 4                                       ; block 19; preds = %8
 begin_block 5                                       ; 22; preds = %8
   getelementptr %23 __lldb_LoadLibraryResult %2 iptr_0 i32_1                    ; %23 = getelementptr inbounds %struct.__lldb_LoadLibraryResult, ptr %2, i64 0, i32 1
   load %24 ptr %23                                  ; %24 = load ptr, ptr %23, align 8, !tbaa !15
-  getelementptr %25 __lldb_LoadLibraryResult %2 iptr_0 i32_1                    ; %25 = getelementptr inbounds %struct.__lldb_LoadLibraryResult, ptr %2, i64 0, i32 2
+  getelementptr %25 __lldb_LoadLibraryResult %2 iptr_0 i32_2                    ; %25 = getelementptr inbounds %struct.__lldb_LoadLibraryResult, ptr %2, i64 0, i32 2
   load %26 i32 %25                                  ; %26 = load i32, ptr %25, align 8, !tbaa !16
   call %27 GetModuleFileNameA GetModuleFileNameA %9 %24 %26                     ; %27 = tail call i32 @GetModuleFileNameA(ptr %9, ptr %24, i32 %26)
   store %27 %25                                     ; store i32 %27, ptr %25, align 8, !tbaa !16

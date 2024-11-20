@@ -51,6 +51,19 @@ bool MiniLLVMCompiler::GetInt(llvm::StringRef name, int &value) {
   return true;
 }
 
+bool MiniLLVMCompiler::GetToken(std::vector<llvm::StringRef> &tokens,
+                                llvm::StringRef insn, int index,
+                                llvm::StringRef &value) {
+  if ((size_t)index >= tokens.size()) {
+    diagnostic_manager.Printf(lldb::eSeverityError,
+                              "missing argument for %.*s at line %d",
+                              (int)insn.size(), insn.bytes_begin(), line_num);
+    return false;
+  }
+  value = tokens[index];
+  return true;
+}
+
 MiniLLVMCompiler::MiniLLVMCompiler(
     lldb_private::DiagnosticManager &diagnostic_manager,
     const lldb_private::MiniLLVMContext *miniContext)
@@ -138,31 +151,45 @@ bool MiniLLVMCompiler::ParseAndEmit(llvm::StringRef text) {
   return true;
 }
 
+#define MLGetToken(index, value)                                               \
+  llvm::StringRef value;                                                       \
+  if (!GetToken(tokens, insn, index, value))                                   \
+    return false;
+
 #define MLGetType(index, type)                                                 \
   Type *type;                                                                  \
-  if (!GetType(tokens.at(index), type))                                        \
-    return false;
+  {                                                                            \
+    MLGetToken(index, _token);                                                 \
+    if (!GetType(_token, type))                                                \
+      return false;                                                            \
+  }
 
 #define MLGetValue(index, value)                                               \
   Value *value;                                                                \
-  if (!GetValue(tokens.at(index), value))                                      \
-    return false;
+  {                                                                            \
+    MLGetToken(index, _token);                                                 \
+    if (!GetValue(_token, value))                                              \
+      return false;                                                            \
+  }
 
 #define MLGetInt(index, value)                                                 \
   int value;                                                                   \
-  if (!GetInt(tokens.at(index), value))                                        \
-    return false;
+  {                                                                            \
+    MLGetToken(index, _token);                                                 \
+    if (!GetInt(_token, value))                                                \
+      return false;                                                            \
+  }
 
 bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
   auto insn = tokens.at(0);
   if (insn == "const") {
-    auto name = tokens.at(1);
+    MLGetToken(1, name);
     MLGetType(2, type);
     Value *value;
     if (type == named_types["ptr"]) {
       int bit_width = 64; // TODO: 32bit support
-      auto *constant =
-          ConstantInt::get(named_types["iptr"], APInt(bit_width, tokens.at(3), 10));
+      auto *constant = ConstantInt::get(named_types["iptr"],
+                                        APInt(bit_width, tokens.at(3), 10));
       value = llvm::ConstantExpr::getIntToPtr(constant, type);
     } else {
       value =
@@ -173,7 +200,7 @@ bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
   }
 
   else if (insn == "define_struct") {
-    auto name = tokens.at(1);
+    MLGetToken(1, name);
     std::vector<llvm::Type *> types;
 
     for (size_t i = 2; i < tokens.size(); i++) {
@@ -186,7 +213,7 @@ bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
     named_types[name] = new_type;
   } else if (insn == "define_function_type") {
     MLGetType(1, return_type);
-    auto function_type_name = tokens.at(2);
+    MLGetToken(2, function_type_name);
     std::vector<llvm::Type *> types;
 
     for (size_t i = 3; i < tokens.size(); i++) {
@@ -200,7 +227,7 @@ bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
     named_types[function_type_name] = function_type;
   } else if (insn == "declare_function") {
     MLGetType(1, function_type);
-    auto function_name = tokens.at(2);
+    MLGetToken(2, function_name);
 
     auto *function = Function::Create(cast<FunctionType>(function_type),
                                       Function::ExternalLinkage, function_name,
@@ -208,8 +235,14 @@ bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
     named_values[function_name] = function;
   } else if (insn == "define_function") {
     MLGetType(1, function_type);
-    auto function_name = tokens.at(2);
+    MLGetToken(2, function_name);
     MLGetInt(3, block_count);
+    if (block_count == 0) {
+      diagnostic_manager.Printf(
+          lldb::eSeverityError,
+          "function must have at least one block at line %d", line_num);
+      return false;
+    }
 
     current_fn = Function::Create(cast<FunctionType>(function_type),
                                   Function::ExternalLinkage, function_name,
@@ -230,28 +263,45 @@ bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
     // instruction builder
   } else if (insn == "begin_block") {
     MLGetInt(1, block_num);
+    if (blocks.size() <= (size_t)block_num) {
+      if (blocks.size() == 0) {
+        diagnostic_manager.Printf(
+            lldb::eSeverityError,
+            "no functions are defining but begin_block is there at line %d",
+            line_num);
+
+      } else {
+        diagnostic_manager.Printf(lldb::eSeverityError,
+                                  "block index out of range at line %d: block "
+                                  "count %d but creating %d",
+                                  line_num, (int)blocks.size(), block_num);
+      }
+      return false;
+    }
     builder->SetInsertPoint(blocks.at(block_num));
   }
   // basic instruction format for instructions
   // <insn> [result] <op1> <op2> ...
   else if (insn == "icmp") {
-    auto result = tokens.at(1);
+    MLGetToken(1, result);
+    MLGetToken(2, op);
     ICmpInst::Predicate pred;
-    if (tokens.at(2) == "eq") {
+    if (op == "eq") {
       pred = ICmpInst::Predicate::ICMP_EQ;
-    } else if (tokens.at(2) == "ne") {
+    } else if (op == "ne") {
       pred = ICmpInst::Predicate::ICMP_NE;
-    } else if (tokens.at(2) == "slt") {
+    } else if (op == "slt") {
       pred = ICmpInst::Predicate::ICMP_SLT;
-    } else if (tokens.at(2) == "sle") {
+    } else if (op == "sle") {
       pred = ICmpInst::Predicate::ICMP_SLE;
-    } else if (tokens.at(2) == "sgt") {
+    } else if (op == "sgt") {
       pred = ICmpInst::Predicate::ICMP_SGT;
-    } else if (tokens.at(2) == "sge") {
+    } else if (op == "sge") {
       pred = ICmpInst::Predicate::ICMP_SGE;
     } else {
       diagnostic_manager.Printf(lldb::eSeverityError,
-                                "unknown predicate at line %d", line_num);
+                                "unknown predicate %.*s at line %d",
+                                (int)op.size(), op.bytes_begin(), line_num);
       return false;
     }
     MLGetValue(3, op1);
@@ -259,7 +309,7 @@ bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
 
     named_values[result] = builder->CreateICmp(pred, op1, op2);
   } else if (insn == "call") {
-    auto result = tokens.at(1);
+    MLGetToken(1, result);
     MLGetType(2, function_type_raw);
     MLGetValue(3, function);
     std::vector<Value *> values;
@@ -298,28 +348,28 @@ bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
     MLGetValue(2, ptr);
     builder->CreateStore(value, ptr);
   } else if (insn == "load") {
-    auto result = tokens.at(1);
+    MLGetToken(1, result);
     MLGetType(2, type);
     MLGetValue(3, ptr);
     named_values[result] = builder->CreateLoad(type, ptr);
   } else if (insn == "add") {
-    auto result = tokens.at(1);
+    MLGetToken(1, result);
     MLGetValue(2, op1);
     MLGetValue(3, op2);
     named_values[result] = builder->CreateAdd(op1, op2);
   } else if (insn == "getelementptr") {
-    auto result = tokens.at(1);
+    MLGetToken(1, result);
     MLGetType(2, type);
     MLGetValue(3, ptr);
     MLGetValue(4, idx);
     if (tokens.size() == 6) {
-      auto *idx2 = named_values.at(tokens.at(5));
+      MLGetValue(5, idx2);
       named_values[result] = builder->CreateGEP(type, ptr, {idx, idx2});
     } else {
       named_values[result] = builder->CreateGEP(type, ptr, idx);
     }
   } else if (insn == "phi") {
-    auto result = tokens.at(1);
+    MLGetToken(1, result);
     MLGetType(2, type);
     MLGetInt(3, block_count);
     auto *phi = builder->CreatePHI(type, block_count);
@@ -327,7 +377,7 @@ bool MiniLLVMCompiler::ParseLine(std::vector<StringRef> &tokens) {
 
     int base = 4;
     for (int i = 0; i < block_count; i++) {
-      StringRef value_name = tokens.at(base + i * 2);
+      MLGetToken(base + i * 2, value_name);
       MLGetInt(base + i * 2 + 1, block_idx);
       auto *block = blocks.at(block_idx);
       phi_updates.push_back({phi, block, value_name, line_num});
