@@ -11,7 +11,9 @@
 #include "PDBASTParser.h"
 #include "PDBLocationToDWARFExpression.h"
 
+#if CONSOLE_LOG_SAVER
 #include "clang/Lex/Lexer.h"
+#endif
 
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "lldb/Core/Module.h"
