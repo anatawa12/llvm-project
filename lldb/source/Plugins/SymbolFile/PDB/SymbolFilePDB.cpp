@@ -977,6 +977,9 @@ VariableSP SymbolFilePDB::ParseVariableForPDBData(
   if (result != m_variables.end())
     return result->second;
 
+#ifndef CONSOLE_LOG_SAVER
+  return nullptr;
+#else
   ValueType scope = eValueTypeInvalid;
   bool is_static_member = false;
   bool is_external = false;
@@ -1086,6 +1089,7 @@ VariableSP SymbolFilePDB::ParseVariableForPDBData(
 
   m_variables.insert(std::make_pair(var_uid, var_sp));
   return var_sp;
+#endif
 }
 
 size_t
