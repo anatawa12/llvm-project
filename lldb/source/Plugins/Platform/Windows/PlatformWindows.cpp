@@ -455,7 +455,7 @@ Status PlatformWindows::UnloadImage(Process *process, uint32_t image_token) {
   StreamString expression;
 #ifndef CONSOLE_LOG_SAVER
   expression.Printf(
-      "#!mini-llvm-expr 1"
+      "#!mini-llvm-expr 1\n"
       "define_function_type i32 FreeLibrary ptr\n"
       "declare_function FreeLibrary FreeLibrary\n"
       "\n"
