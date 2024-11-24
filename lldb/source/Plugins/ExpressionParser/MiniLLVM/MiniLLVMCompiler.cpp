@@ -148,6 +148,20 @@ bool MiniLLVMCompiler::ParseAndEmit(llvm::StringRef text) {
     phi->addIncoming(value->second, block);
   }
 
+  // post checks
+  for (const auto &func : module->functions()) {
+    int index = 0;
+    for (const auto &block : func) {
+      if (block.getTerminator() == nullptr) {
+        diagnostic_manager.Printf(
+            lldb::eSeverityError,
+            "block must have terminator in block %d of %.*s", index,
+            (int)func.getName().size(), func.getName().data());
+        index++;
+      }
+    }
+  }
+
   return true;
 }
 
