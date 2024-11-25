@@ -135,7 +135,7 @@ let Definition = "target" in {
     DefaultTrue,
     Desc<"debugserver will detach (rather than killing) a process if it loses connection with lldb.">;
   def PreloadSymbols: Property<"preload-symbols", "Boolean">,
-    DefaultTrue,
+    DefaultFalse,
     Desc<"Enable loading of symbol tables before they are needed.">;
   def DisableASLR: Property<"disable-aslr", "Boolean">,
     DefaultTrue,
