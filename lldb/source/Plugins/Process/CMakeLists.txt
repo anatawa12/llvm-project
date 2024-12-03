@@ -22,7 +22,7 @@ add_subdirectory(minidump)
 add_subdirectory(FreeBSDKernel)
 endif()
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
-  add_subdirectory(Linux)
+  add_subdirectory(gdb-remote)
   add_subdirectory(Utility)
 elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
   # macOS must use debugserver with gdb protocol for debugging any process
